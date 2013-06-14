@@ -59,14 +59,130 @@ string recieveString(FILE * handler){
   return ret.erase(ret.size()-1);
 }
 
+vector<string> myExplode(string const & explosives, string const & delimeters = bialeZnaki){
+  
+  vector<string> ret;
+  
+  size_t pos = 0;
+  
+  while(string::npos != ( pos = explosives.find_first_not_of(delimeters, pos) )
+  ){
+    size_t endPos = explosives.find_first_of(delimeters, pos);
+    
+    ret.push_back(explosives.substr(pos, endPos-pos));
+    
+    pos = (string::npos == endPos) ? string::npos : endPos+1;
+  }
+  
+  return ret;
+}
+
 void * watekPerKlient(void* _arg){
   
   FILE * handlerSocketu = ((pair<FILE *, string> *)_arg)->first;
   string nazwaDruzyny = ((pair<FILE *, string> *)_arg)->second;
   
-NYI //TODO
+  vector<string> komenda;
   
-  return 0;
+  for(;;){
+    
+    komenda = myExplode(recieveString(handlerSocketu));
+    
+    if("DESCRIBE_WORLD" == komenda[0]){
+        
+NYI //TODO
+        
+    }
+    else if("TIME_TO_RESCUE" == komenda[0]){
+      
+NYI //TODO
+      
+    }
+    else if("LIST_SURVIVORS" == komenda[0]){
+      
+NYI //TODO
+      
+    }
+    else if("LIST_RAFTS" == komenda[0]){
+      
+NYI //TODO
+      
+    }
+    else if("IGNITION" == komenda[0]){
+      
+NYI //TODO
+      
+    }
+    else if("MOVE" == komenda[0]){
+      
+NYI //TODO
+      
+    }
+    else if("TAKE" == komenda[0]){
+      
+NYI //TODO
+      
+    }
+    else if("GIVE" == komenda[0]){
+      
+NYI //TODO
+      
+    }
+    else if("GUARD" == komenda[0]){
+      
+NYI //TODO
+      
+    }
+    else if("STOP_GUARDING" == komenda[0]){
+      
+NYI //TODO
+      
+    }
+    else if("LIST_WOOD" == komenda[0]){
+      
+NYI //TODO
+      
+    }
+    else if("INFO" == komenda[0]){
+      
+NYI //TODO
+      
+    }
+    else if("BUILD" == komenda[0]){
+      
+NYI //TODO
+      
+    }
+    else if("ABANDON" == komenda[0]){
+      
+NYI //TODO
+      
+    }
+    else if("TAKE_OVER" == komenda[0]){
+      
+NYI //TODO
+      
+    }
+    else if("DRY" == komenda[0]){
+      
+NYI //TODO
+      
+    }
+    else if("MY_WOOD" == komenda[0]){
+      
+NYI //TODO
+      
+    }
+    else if("WAIT" == komenda[0]){
+      
+NYI //TODO
+      
+    }
+    else
+      sendString(handlerSocketu, "FAILED 2 unknown command");
+    
+  }
+  
 } // koniec watku per klient
 
 map<string, string> daneDruzyn;
