@@ -56,7 +56,7 @@ void sendString(FILE * handler, const string & wiadomosc, bool newline = true){
 string recieveString(FILE * handler){
   string ret;
   do ret += getc(handler); while('\n' != ret[ret.size()-1]);
-  return ret;
+  return ret.erase(ret.size()-1);
 }
 
 void * watekPerKlient(void* _arg){
@@ -71,7 +71,7 @@ NYI //TODO
 
 map<string, string> daneDruzyn;
 
-void * watekAkceptora(void* _arg){
+void * watekAkceptora(void*){
   
   for(;;){
     int deskryptorSocketuKlienta =  accept(deskryptorSocketuAkceptora, NULL, NULL);
@@ -132,7 +132,30 @@ int main(int argc, char ** argv){
   
   /////
   
-NYI //TODO setup socketu akceptora i stworzenie jego watku
+  deskryptorSocketuAkceptora = socket(AF_INET, SOCK_STREAM, 0);
+  if(-1 == deskryptorSocketuAkceptora){SYS_ERROR("socket error"); return EXIT_CODE_COUNTER;}
+  
+  struct sockaddr_in adresSocketuAkceptora = {0};
+  adresSocketuAkceptora.sin_family = AF_INET;
+  adresSocketuAkceptora.sin_port = htons(numerPortu);
+  adresSocketuAkceptora.sin_addr.s_addr = INADDR_ANY;
+
+  if(-1 == bind(deskryptorSocketuAkceptora, (struct sockaddr *) &adresSocketuAkceptora, sizeof(struct sockaddr_in))){SYS_ERROR("bind error"); return EXIT_CODE_COUNTER;}
+  
+  if(-1 == listen(deskryptorSocketuAkceptora, WIELKOSC_BACKLOGU)){SYS_ERROR("listen error"); return EXIT_CODE_COUNTER;}
+  
+  {
+    pthread_t dummy;
+    if(pthread_create(&dummy, NULL, watekAkceptora, NULL)){SYS_ERROR("pthread_create error"); exit(EXIT_CODE_COUNTER);}
+  }
+  
+  /////
+  
+  for(;;sleep(1)){
+  
+NYI //TODO obsluga systemu turowego gry
+  
+  }
   
   /////
   
