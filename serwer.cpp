@@ -527,7 +527,30 @@ void * watekPerKlient(void* _arg){
     }
     else if("TIME_TO_RESCUE" == komenda[0]){
       
-NYI //TODO
+      if(komenda.size() < 1) sendError(handlerSocketu, 3);
+      else if(komenda.size() > 1) sendError(handlerSocketu, 4);
+      else{
+        sendString(handlerSocketu, "OK");
+        
+        sendString(handlerSocketu,
+                   string(FireStatus->get() ? "BURNING" : "NONE") + " " +
+                   NumberToString(L->get())
+                  );
+        
+        set<Top5_Element, greater<Top5_Element> > t5Dummy = *Top5;
+        
+        if(5 != t5Dummy.size()) {SYS_ERROR("Niespojnosc danych - Top5 nie ma pieciu elementow."); exit(EXIT_CODE_COUNTER);}
+        
+        for(set<Top5_Element, greater<Top5_Element> >::iterator it = t5Dummy.begin();
+            t5Dummy.end() != it;
+            ++it)
+          sendString(handlerSocketu,
+                     NumberToString(it->getCoords().first)  + " " +
+                     NumberToString(it->getCoords().second) + " " +
+                     NumberToString(it->getSticks())
+                    );
+        
+      }
       
     }
     else if("LIST_SURVIVORS" == komenda[0]){
