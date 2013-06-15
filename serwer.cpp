@@ -7,6 +7,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cmath>
 
 #include <iostream>
 #include <fstream>
@@ -119,15 +120,18 @@ public:
   }
 
   const PtrWrapper operator->(){
+    if(NULL == mInstance){SYS_ERROR("Operacja na niezainicjalizowanym AtomicWrapperze."); exit(EXIT_CODE_COUNTER);}
     return PtrWrapper(mInstance, mMutex);
   }
 
   T operator*(){ // zwraca kopie trzymanego obiektu
+    if(NULL == mInstance){SYS_ERROR("Operacja na niezainicjalizowanym AtomicWrapperze."); exit(EXIT_CODE_COUNTER);}
     return *PtrWrapper(mInstance, mMutex);
   }
   
   template <typename U>
-  U runFunction(U (*function)(T&, void*), void * arg){
+  U runFunction(U (*function)(T&, void*), void * arg = NULL){
+    if(NULL == mInstance){SYS_ERROR("Operacja na niezainicjalizowanym AtomicWrapperze."); exit(EXIT_CODE_COUNTER);}
     return PtrWrapper(mInstance, mMutex).runFunction(function, arg);
   }
   
@@ -142,6 +146,7 @@ class GetSetWrapper{
 public:
   
   GetSetWrapper(const T & _val):val(_val){}
+  GetSetWrapper(){}
   
   T get(){
     return val;
@@ -152,6 +157,18 @@ public:
   }
   
 };
+
+/////
+
+pair<int, int> operator+(const pair<int, int> & P1, const pair<int, int> & P2){
+  
+  return make_pair(
+                    P1.first  + P2.first,
+                    P1.second + P2.second
+                  );
+  
+}
+
 /////
 
 void interrupt(int signo){ exit(0); }
@@ -251,7 +268,7 @@ vector<string> myExplode(string const & explosives, string const & delimeters = 
 
 /////
 
-struct Pole{
+class Pole{
   
   // wszystkie wartosci dotycza stanu z poczatku tury
   
@@ -263,6 +280,8 @@ struct Pole{
        S_O,   // sumaryczna liczba patykow na tratwach z kapitanem
        S_A;   // sumaryczna liczba patykow na porzuconych tratwach
   
+public:
+  
   Pole(bool _wyspa = false,
        int _B      = 0,
        int _G      = 0,
@@ -272,21 +291,54 @@ struct Pole{
        int _S_A    = 0):
        wyspa(_wyspa), B(_B), G(_G), R_O(_R_O), R_A(_R_A), S_O(_S_O), S_A(_S_A){}
   
+  void setWyspa(bool _wyspa){ wyspa = _wyspa; }
+  void setB    (int  _B)    { B     = _B;     }
+  void setG    (int  _G)    { G     = _G;     }
+  void setR_O  (int  _R_O)  { R_O   = _R_O;   }
+  void setR_A  (int  _R_A)  { R_A   = _R_A;   }
+  void setS_O  (int  _S_O)  { S_O   = _S_O;   }
+  void setS_A  (int  _S_A)  { S_A   = _S_A;   }
+  
+  bool getWyspa(){ return wyspa; }
+  int  getB    (){ return B;     }
+  int  getG    (){ return G;     }
+  int  getR_O  (){ return R_O;   }
+  int  getR_A  (){ return R_A;   }
+  int  getS_O  (){ return S_O;   }
+  int  getS_A  (){ return S_A;   }
+  
 };
 
-struct Wyspa{
+class Wyspa{
+  
+  int              Sticks;     // sumaryczna liczba patykow na wyspie
+  map<string, int> teamSticks; // zbior liczb patykow przypisanych danej druzynie, uszeregowanych wedlug nazw druzyn
+  
+public:
+  
+  Wyspa(int _Sticks):Sticks(_Sticks){}
+  
+  int getSticks(){ return Sticks; }
+  
+  int takeSticks(int howMany, string nazwaDruzyny){
+NYI //TODO
+  }
+  
+  void leaveSticks(int howMany, string nazwaDruzyny){
+NYI //TODO
+  }
+  
+};
+
+class MyWood{
 //TODO
 };
 
-struct MyWood{
+class Zuczek{
 //TODO
 };
 
-struct Zuczek{
-//TODO
-};
-
-struct DescribeWorld{
+class DescribeWorld{
   int N,    // dlugosc boku planszy
       I,    // liczba wysp na planszy
       Smin, // minimalny rozmiar ogniska
@@ -295,6 +347,8 @@ struct DescribeWorld{
 
   double K; // wspolczynnik skalujacy wynik
   
+public:
+  
   DescribeWorld(int _N, int _I, int _Smin, int _F, int _T, double _K):
     N(_N), I(_I), Smin(_Smin), F(_F), T(_T), K(_K){}
   
@@ -302,9 +356,9 @@ struct DescribeWorld{
     *this = values;
   }
   
-  DescribeWorld getCopy(){
-    return *this;
-  }
+//   DescribeWorld getCopy(){
+//     return *this;
+//   }
   
   void setN   (int    _N)   { N    = _N;    }
   void setI   (int    _I)   { I    = _I;    }
@@ -324,26 +378,26 @@ struct DescribeWorld{
 /////
 // wartosci opisujace stan gry
 
-AtomicWrapper<DescribeWorld>              ParametryRozgrywki;    // parametry rozgrywki i wartosc wspolczynnika skalujacego wynik
+AtomicWrapper<DescribeWorld>               ParametryRozgrywki;    // parametry rozgrywki i wartosc wspolczynnika skalujacego wynik
 
 
-AtomicWrapper<GetSetWrapper<int> >        PoczatkoweB,           // ilosc zukoskoczkow na poczatku rundy
-                                          L;                     // liczba tur do konca rundy
+AtomicWrapper<GetSetWrapper<int> >         PoczatkoweB,           // ilosc zukoskoczkow na poczatku rundy
+                                           L;                     // liczba tur do konca rundy
 
-AtomicWrapper<GetSetWrapper<time_t> >     Tstart;                // czas, kiedy zaczela sie tura
+AtomicWrapper<GetSetWrapper<time_t> >      Tstart;                // czas, kiedy zaczela sie tura
 
-AtomicWrapper<GetSetWrapper<bool> >       FireStatus;            // czy plonie ognisko
+AtomicWrapper<GetSetWrapper<bool> >        FireStatus;            // czy plonie ognisko
 
-AtomicWrapper<vector<vector<Pole> > >     Mapa;                  // "wektor dwuwymiarowy" (praktycznie tablica dwuwymiarowa z punktu widzenia jego interface'u) przechowujacy podstawowe informacje o wszystkich polach na mapie gry
-AtomicWrapper<map<int, map<int,Wyspa> > > Wyspy;                 // zbior informacji o wyspach ( "dwuwymiarowa mapa" ), uszeregowanych wedlug ich wspolrzednych
+AtomicWrapper<vector<vector<Pole> > >      Mapa;                  // "wektor dwuwymiarowy" przechowujacy podstawowe informacje o wszystkich polach na mapie gry
+AtomicWrapper<map<pair<int, int>, Wyspa> > Wyspy;                 // zbior informacji o wyspach, uszeregowanych wedlug ich wspolrzednych
 
-AtomicWrapper<set<Wyspa> >                Top5;                  // zbior pieciu wysp, na ktorych na poczatku tury znajdowalo sie najwiecej patykow
+AtomicWrapper<set<Wyspa> >                 Top5;                  // zbior pieciu wysp, na ktorych na poczatku tury znajdowalo sie najwiecej patykow
 
-AtomicWrapper<map<string, int> >          BPerDruzyna;           // liczba zywych zukoskoczkow danej druzyny
-AtomicWrapper<map<string, set<int> > >    RozbitkowiePerDruzyna; // zbior identyfikatorow zywych zukoskoczkow danej druzyny
-AtomicWrapper<map<string, MyWood> >       MyWoodPerDruzyna;      // informacje zwracane w odpowiedzi na komende MY_WOOD, przydatne rowniez przy obliczaniu rankingu, zwiazane z dana druzyna
+AtomicWrapper<map<string, int> >           BPerDruzyna;           // liczba zywych zukoskoczkow danej druzyny
+AtomicWrapper<map<string, set<int> > >     RozbitkowiePerDruzyna; // zbior identyfikatorow zywych zukoskoczkow danej druzyny
+AtomicWrapper<map<string, MyWood> >        MyWoodPerDruzyna;      // informacje zwracane w odpowiedzi na komende MY_WOOD, przydatne rowniez przy obliczaniu rankingu, zwiazane z dana druzyna
 
-AtomicWrapper<map<int, Zuczek> >          Zuczki;                // zbior zuczkow, uszeregowanych wedlug ich ID
+AtomicWrapper<map<int, Zuczek> >           Zuczki;                // zbior zuczkow, uszeregowanych wedlug ich ID
 
 /////
 
@@ -351,8 +405,6 @@ void * watekPerKlient(void* _arg){
   
   FILE * handlerSocketu = ((pair<FILE *, string> *)_arg)->first;
   string nazwaDruzyny = ((pair<FILE *, string> *)_arg)->second;
-  
-NYI //TODO losowanie pozycji startowych B zuczkow, jezeli druzyna loguje sie po raz pierwszy w tej turze
   
   vector<string> komenda;
   
@@ -362,19 +414,21 @@ NYI //TODO losowanie pozycji startowych B zuczkow, jezeli druzyna loguje sie po 
     
     if("DESCRIBE_WORLD" == komenda[0]){
       
-      //TODO sprawdzenie ilosci argumentow
-      
-      sendString(handlerSocketu, "OK");
-      
-      DescribeWorld dwDummy = ParametryRozgrywki->getCopy();
-      sendString(handlerSocketu,
-                 NumberToString(dwDummy.N)    + " " +
-                 NumberToString(dwDummy.I)    + " " +
-                 NumberToString(dwDummy.Smin) + " " +
-                 NumberToString(dwDummy.F)    + " " +
-                 NumberToString(dwDummy.T)    + " " +
-                 NumberToString(dwDummy.K)
-                );
+      if(komenda.size() < 1) sendError(handlerSocketu, 3);
+      else if(komenda.size() > 1) sendError(handlerSocketu, 4);
+      else{
+        sendString(handlerSocketu, "OK");
+        
+        DescribeWorld dwDummy = *ParametryRozgrywki;
+        sendString(handlerSocketu,
+                   NumberToString(dwDummy.getN())    + " " +
+                   NumberToString(dwDummy.getI())    + " " +
+                   NumberToString(dwDummy.getSmin()) + " " +
+                   NumberToString(dwDummy.getF())    + " " +
+                   NumberToString(dwDummy.getT())    + " " +
+                   NumberToString(dwDummy.getK())
+                  );
+      }
       
     }
     else if("TIME_TO_RESCUE" == komenda[0]){
@@ -504,12 +558,24 @@ void * watekAkceptora(void*){
   
 } // koniec watku akceptora
 
+/////
+
+void zerujMapeFn(vector<vector<Pole> > &, void *);
+void losujWyspy(map<pair<int, int>, Wyspa> &, void *);
+
+/////
+
 int main(int argc, char ** argv){
+  
+  srand(time(NULL));
+  
   if(2 != argc){SYS_ERROR("Uzycie: ./serwer numerPortu\n"); return EXIT_CODE_COUNTER;}
   
   char * endptr;
   int numerPortu = strtol(argv[1], &endptr, 0);
   if(*endptr || numerPortu < 0){SYS_ERROR("Numer portu musi byc nieujemna liczba calkowita."); return EXIT_CODE_COUNTER;}
+  
+  const time_t CzasStartuGry = time(NULL);
   
   /////
   
@@ -551,44 +617,67 @@ int main(int argc, char ** argv){
   
   /////
   
+  DescribeWorld              nonatomic_ParametryRozgrywki(500, 8000, 2000, 20, 5, 1.);
+  GetSetWrapper<int>         nonatomic_PoczatkoweB;
+  GetSetWrapper<int>         nonatomic_L;
+  GetSetWrapper<time_t>      nonatomic_Tstart;
+  GetSetWrapper<bool>        nonatomic_FireStatus;
+  vector<vector<Pole> >      nonatomic_Mapa;
+  map<pair<int, int>, Wyspa> nonatomic_Wyspy; //TODO
+  set<Wyspa>                 nonatomic_Top5; //TODO
+  map<string, int>           nonatomic_BPerDruzyna;
+  map<string, set<int> >     nonatomic_RozbitkowiePerDruzyna; //TODO
+  map<string, MyWood>        nonatomic_MyWoodPerDruzyna; //TODO
+  map<int, Zuczek>           nonatomic_Zuczki; //TODO
+  
+  
+  ParametryRozgrywki   .initialize(&nonatomic_ParametryRozgrywki);
+  PoczatkoweB          .initialize(&nonatomic_PoczatkoweB);
+  L                    .initialize(&nonatomic_L);
+  Tstart               .initialize(&nonatomic_Tstart);
+  FireStatus           .initialize(&nonatomic_FireStatus);
+  Mapa                 .initialize(&nonatomic_Mapa);
+  Wyspy                .initialize(&nonatomic_Wyspy);
+  Top5                 .initialize(&nonatomic_Top5);
+  BPerDruzyna          .initialize(&nonatomic_BPerDruzyna);
+  RozbitkowiePerDruzyna.initialize(&nonatomic_RozbitkowiePerDruzyna);
+  MyWoodPerDruzyna     .initialize(&nonatomic_MyWoodPerDruzyna);
+  Zuczki               .initialize(&nonatomic_Zuczki);
+  
+  /////
+  
+  const double Pod = 1.00002406790006336880498073623209268063; // podstawa funkcji wykladniczej wspolczynnika skalujacego wynik od czasu
+  
   for(;;){ // petla po rundach
     
-    DescribeWorld             nonatomic_ParametryRozgrywki(500, 8000, 2000, 20, 5, 8);
-    GetSetWrapper<int>        nonatomic_PoczatkoweB(5);
-    GetSetWrapper<int>        nonatomic_L(1000);
-    GetSetWrapper<time_t>     nonatomic_Tstart(time(NULL));
-    GetSetWrapper<bool>       nonatomic_FireStatus(false);
-    vector<vector<Pole> >     nonatomic_Mapa(
-                                vector<vector<Pole> >(
-                                  nonatomic_ParametryRozgrywki.getN(),
-                                  vector<Pole>(nonatomic_ParametryRozgrywki.getN())
-                                )
-                              );
-  //   map<int, map<int,Wyspa> > nonatomic_Wyspy( blah blah blah );
-    set<Wyspa>                nonatomic_Top5;
+    int dummy_PoczatkoweB = rand()%8+3;
+    
+    ParametryRozgrywki ->setK(pow(Pod, time(NULL)-CzasStartuGry));
+    PoczatkoweB        ->set(dummy_PoczatkoweB);
+    L                  ->set(1000);
+    Tstart             ->set(time(NULL));
+    FireStatus         ->set(false);
+    
+    Mapa.runFunction(zerujMapeFn);
+    
+    Wyspy.runFunction(losujWyspy);
+    
+    for(map<string, string>::iterator it = daneDruzyn.begin();
+        daneDruzyn.end() != it;
+        ++it
+    ){
+      BPerDruzyna->insert(make_pair(it->first, dummy_PoczatkoweB));
+    }
     
     
     
-    ParametryRozgrywki.initialize(&nonatomic_ParametryRozgrywki);
-    PoczatkoweB       .initialize(&nonatomic_PoczatkoweB);
-    L                 .initialize(&nonatomic_L);
-    Tstart            .initialize(&nonatomic_Tstart);
-    FireStatus        .initialize(&nonatomic_FireStatus);
-    Mapa              .initialize(&nonatomic_Mapa);
-  //   Wyspy             .initialize(&nonatomic_Wyspy);
-    Top5              .initialize(&nonatomic_Top5);
-
-  // AtomicWrapper<map<int, map<int,Wyspa> > > Wyspy;                 // zbior informacji o wyspach ( "dwuwymiarowa mapa" ), uszeregowanych wedlug ich wspolrzednych
-  // 
-  // AtomicWrapper<set<Wyspa> >             Top5;                  // zbior pieciu wysp, na ktorych na poczatku tury znajdowalo sie najwiecej patykow
-  // 
-  // AtomicWrapper<map<string, int> >          BPerDruzyna;           // liczba zywych zukoskoczkow danej druzyny
-  // AtomicWrapper<map<string, set<int> > >    RozbitkowiePerDruzyna; // zbior identyfikatorow zywych zukoskoczkow danej druzyny
-  // AtomicWrapper<map<string, MyWood> >       MyWoodPerDruzyna;      // informacje zwracane w odpowiedzi na komende MY_WOOD, przydatne rowniez przy obliczaniu rankingu, zwiazane z dana druzyna
-  // 
-  // AtomicWrapper<map<int, Zuczek> >          Zuczki;                // zbior zuczkow, uszeregowanych wedlug ich ID
+NYI return EXIT_CODE_COUNTER; //TODO losowanie pozycji startowych zuczkow
     
-    for(;L->get();sleep(5), L->set(L->get()-1)){ // petla po turach
+    for(;L->get();
+        sleep(ParametryRozgrywki->getT()),
+        L->set((*L).get()-1), // kopiujemy L, odejmujemy 1 od kopii i przypisujemy
+        Tstart->set(time(NULL))
+       ){ // petla po turach
       
 NYI //TODO obsluga systemu turowego gry
       
@@ -598,8 +687,55 @@ NYI //TODO obsluga systemu turowego gry
 
 }
 
+/////
 
+bool czyMoznaPostawicWyspe(const map<pair<int, int>, Wyspa> & unwrapped_Wyspy, const pair<int, int> & newIslandsCoords){
+  
+  const static pair<int, int> Sasiedzi[] = {
+    make_pair( 0, 0),
+    make_pair( 1, 0),
+    make_pair( 0, 1),
+    make_pair(-1, 0),
+    make_pair( 0,-1)
+  };
+  
+  for(int i=0;i<sizeof(Sasiedzi);++i)
+    if(unwrapped_Wyspy.end() != unwrapped_Wyspy.find(newIslandsCoords+Sasiedzi[i]) ) return false;
+  
+  return true;
+}
 
+/////
+
+void zerujMapeFn(vector<vector<Pole> > & unwrapped_Mapa, void *){
+  
+  int dummy_N    = ParametryRozgrywki->getN();
+  
+  unwrapped_Mapa = vector<vector<Pole> >(
+                                          dummy_N,
+                                          vector<Pole>(dummy_N)
+                                        );
+  
+}
+
+void losujWyspy(map<pair<int, int>, Wyspa> & unwrapped_Wyspy, void *){
+  
+  unwrapped_Wyspy.clear();
+  
+  int dummy_I    = ParametryRozgrywki->getI(),
+      dummy_N    = ParametryRozgrywki->getN(),
+      dummy_Smin = ParametryRozgrywki->getSmin();
+  
+  for(int i=0;i<dummy_I;++i){
+    pair<int, int> newIslandsCoords;
+    do newIslandsCoords = make_pair(rand()%dummy_N, rand()%dummy_N); while(!czyMoznaPostawicWyspe(unwrapped_Wyspy, newIslandsCoords));
+    
+    int iloscPatykowNaNowejWyspie = rand()%(dummy_Smin/2);
+    unwrapped_Wyspy.insert(make_pair(newIslandsCoords, Wyspa(iloscPatykowNaNowejWyspie)));
+    Mapa->at(newIslandsCoords.first).at(newIslandsCoords.second).setWyspa(true);
+  }
+  
+}
 
 
 
