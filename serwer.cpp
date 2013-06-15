@@ -15,6 +15,7 @@
 #include <vector>
 #include <map>
 #include <set>
+#include <sstream>
 
 using namespace std;
 
@@ -147,25 +148,6 @@ public:
   }
   
 };
-
-/////
-
-struct Pole{
-//TODO
-};
-
-struct Wyspa{
-//TODO
-};
-
-struct MyWood{
-//TODO
-};
-
-struct Zuczek{
-//TODO
-};
-
 /////
 
 void interrupt(int signo){ exit(0); }
@@ -215,20 +197,76 @@ vector<string> myExplode(string const & explosives, string const & delimeters = 
   return ret;
 }
 
+template <typename T>
+string NumberToString(T Number){
+   ostringstream ss;
+   ss << Number;
+   return ss.str();
+}
+
+/////
+
+struct Pole{
+//TODO
+};
+
+struct Wyspa{
+//TODO
+};
+
+struct MyWood{
+//TODO
+};
+
+struct Zuczek{
+//TODO
+};
+
+struct DescribeWorld{
+  int N,    // dlugosc boku planszy
+      I,    // liczba wysp na planszy
+      Smin, // minimalny rozmiar ogniska
+      F,    // mnoznik punktow za patyki w ognisku
+      T;    // czas trwania pojedynczej tury w sekundach
+
+  double K; // wspolczynnik skalujacy wynik
+  
+  DescribeWorld(int _N, int _I, int _Smin, int _F, int _T, double _K):
+    N(_N), I(_I), Smin(_Smin), F(_F), T(_T), K(_K){}
+  
+  void set(const DescribeWorld & values){
+    *this = values;
+  }
+  
+  DescribeWorld getCopy(){
+    return *this;
+  }
+  
+  void setN   (int    _N)   { N    = _N;    }
+  void setI   (int    _I)   { I    = _I;    }
+  void setSmin(int    _Smin){ Smin = _Smin; }
+  void setF   (int    _F)   { F    = _F;    }
+  void setT   (int    _T)   { T    = _T;    }
+  void setK   (double _K)   { K    = _K;    }
+  
+  int    getN   (){ return N;    }
+  int    getI   (){ return I;    }
+  int    getSmin(){ return Smin; }
+  int    getF   (){ return F;    }
+  int    getT   (){ return T;    }
+  double getK   (){ return K;    }
+};
+
 /////
 // wartosci opisujace stan gry
 
-AtomicWrapper<GetSetWrapper<int> >        N,                     // dlugosc boku planszy
-                                          I,                     // liczba wysp na planszy
-                                          Smin,                  // minimalny rozmiar ogniska
-                                          F,                     // mnoznik punktow za patyki w ognisku
-                                          T,                     // czas trwania pojedynczej tury w sekundach
-                                          PoczatkoweB,           // ilosc zukoskoczkow na poczatku rundy
+AtomicWrapper<DescribeWorld>              ParametryRozgrywki;    // parametry rozgrywki i wartosc wspolczynnika skalujacego wynik
+
+
+AtomicWrapper<GetSetWrapper<int> >        PoczatkoweB,           // ilosc zukoskoczkow na poczatku rundy
                                           L;                     // liczba tur do konca rundy
 
 AtomicWrapper<GetSetWrapper<time_t> >     Tstart;                // czas, kiedy zaczela sie tura
-
-AtomicWrapper<GetSetWrapper<double> >     K;                     // wspolczynnik skalujacy wynik
 
 AtomicWrapper<GetSetWrapper<bool> >       FireStatus;            // czy plonie ognisko
 
@@ -239,7 +277,7 @@ AtomicWrapper<vector<Wyspa> >             Top5;                  // wektor pieci
 
 AtomicWrapper<map<string, int> >          BPerDruzyna;           // liczba zywych zukoskoczkow danej druzyny
 AtomicWrapper<map<string, set<int> > >    RozbitkowiePerDruzyna; // zbior identyfikatorow zywych zukoskoczkow danej druzyny
-AtomicWrapper<map<string, MyWood> >       MyWoodPerDruzynat;     // informacje zwracane w odpowiedzi na komende MY_WOOD, przydatne rowniez przy obliczaniu rankingu, zwiazane z dana druzyna
+AtomicWrapper<map<string, MyWood> >       MyWoodPerDruzyna;      // informacje zwracane w odpowiedzi na komende MY_WOOD, przydatne rowniez przy obliczaniu rankingu, zwiazane z dana druzyna
 
 AtomicWrapper<map<int, Zuczek> >          Zuczki;                // zbior zuczkow, uszeregowanych wedlug ich ID
 
@@ -259,9 +297,19 @@ NYI //TODO losowanie pozycji startowych B zuczkow, jezeli druzyna loguje sie po 
     komenda = myExplode(recieveString(handlerSocketu));
     
     if("DESCRIBE_WORLD" == komenda[0]){
-        
-NYI //TODO
-        
+      
+      sendString(handlerSocketu, "OK");
+      
+      DescribeWorld dwDummy = ParametryRozgrywki->getCopy();
+      sendString(handlerSocketu,
+                 NumberToString(dwDummy.N)    + " " +
+                 NumberToString(dwDummy.I)    + " " +
+                 NumberToString(dwDummy.Smin) + " " +
+                 NumberToString(dwDummy.F)    + " " +
+                 NumberToString(dwDummy.T)    + " " +
+                 NumberToString(dwDummy.K)
+                );
+      
     }
     else if("TIME_TO_RESCUE" == komenda[0]){
       
@@ -437,10 +485,14 @@ int main(int argc, char ** argv){
   
   /////
   
-  for(;;sleep(1)){
+  DescribeWorld nonatomic_ParametryRozgrywki(500, 8000, 2000, 20, 5, 8);
   
+  ParametryRozgrywki.initialize(&nonatomic_ParametryRozgrywki);
+  
+  for(;;sleep(5)){
+    
 NYI //TODO obsluga systemu turowego gry
-  
+    
   }
   
   /////
