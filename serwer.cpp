@@ -113,7 +113,9 @@ public:
   AtomicWrapper():mInstance(NULL){}
   
   void initialize(T* instance){
+    mMutex.lock();
     mInstance = instance;
+    mMutex.unlock();
   }
 
   const PtrWrapper operator->(){
@@ -138,6 +140,8 @@ class GetSetWrapper{
   T val;
   
 public:
+  
+  GetSetWrapper(const T & _val):val(_val){}
   
   T get(){
     return val;
@@ -168,9 +172,57 @@ void clean()
       fclose(handlerySocketowINazwyZespolowPerKlient[i].first);
 }
 
+template <typename T>
+string NumberToString(T Number){
+   ostringstream ss;
+   ss << Number;
+   return ss.str();
+}
+
 void sendString(FILE * handler, const string & wiadomosc, bool newline = true){
   fprintf(handler, newline ? "%s\n" : "%s", wiadomosc.c_str());
   fflush(handler);
+}
+
+void sendError(FILE * handler, int kodBledu, bool newline = true){
+  string msg = "FAILED " + NumberToString(kodBledu) + " ";
+  
+  switch(kodBledu){
+    case 1  : msg += "bad login or password"; break;
+    case 2  : msg += "unknown command"; break;
+    case 3  : msg += "bad format"; break;
+    case 4  : msg += "too many arguments"; break;
+    case 5  : msg += "internal error, sorry..."; break;
+    case 6  : msg += "commands limit reached, forced waiting activated"; break;
+    case 101: msg += "incorrect survivor identifier"; break;
+    case 102: msg += "destination is not neighbour"; break;
+    case 103: msg += "destination is outside the world"; break;
+    case 104: msg += "unavailable - survivor is not on land"; break;
+    case 105: msg += "incorrect identifier, the survivor has drown"; break;
+    case 106: msg += "captain cannot build raft"; break;
+    case 107: msg += "not enough sticks to set wood on fire"; break;
+    case 108: msg += "nothing to give"; break;
+    case 109: msg += "guard cannot do such operation"; break;
+    case 110: msg += "survivor is already a guard"; break;
+    case 111: msg += "survivor is busy"; break;
+    case 112: msg += "survivor is not a guard"; break;
+    case 113: msg += "survivor is already a captain"; break;
+    case 114: msg += "survivor is not a captain"; break;
+    case 115: msg += "captain cannot guard wood"; break;
+    case 116: msg += "cannot take over a raft with a captain"; break;
+    case 117: msg += "rafts count limit reached"; break;
+    case 118: msg += "no rafts to take over"; break;
+    case 119: msg += "you cannot carry wood to become a captain"; break;
+    case 120: msg += "wood is burning - taking not possible"; break;
+    case 121: msg += "unable to dry non empty raft"; break;
+    case 123: msg += "already drying"; break;
+    
+    default:
+      SYS_ERROR("Nieznany kod bledu.");
+      return;
+  }
+  
+  sendString(handler, msg, newline);
 }
 
 string recieveString(FILE * handler){
@@ -197,17 +249,29 @@ vector<string> myExplode(string const & explosives, string const & delimeters = 
   return ret;
 }
 
-template <typename T>
-string NumberToString(T Number){
-   ostringstream ss;
-   ss << Number;
-   return ss.str();
-}
-
 /////
 
 struct Pole{
-//TODO
+  
+  // wszystkie wartosci dotycza stanu z poczatku tury
+  
+  bool wyspa; // czy na tym polu znajduje sie wyspa
+  int  B,     // sumaryczna ilosc zuczkow na tym polu
+       G,     // ilosc dzialajacych straznikow na tym polu
+       R_O,   // liczba tratw z kapitanem
+       R_A,   // sumaryczna liczba porzuconych na tym polu tratw
+       S_O,   // sumaryczna liczba patykow na tratwach z kapitanem
+       S_A;   // sumaryczna liczba patykow na porzuconych tratwach
+  
+  Pole(bool _wyspa = false,
+       int _B      = 0,
+       int _G      = 0,
+       int _R_O    = 0,
+       int _R_A    = 0,
+       int _S_O    = 0,
+       int _S_A    = 0):
+       wyspa(_wyspa), B(_B), G(_G), R_O(_R_O), R_A(_R_A), S_O(_S_O), S_A(_S_A){}
+  
 };
 
 struct Wyspa{
@@ -273,7 +337,7 @@ AtomicWrapper<GetSetWrapper<bool> >       FireStatus;            // czy plonie o
 AtomicWrapper<vector<vector<Pole> > >     Mapa;                  // "wektor dwuwymiarowy" (praktycznie tablica dwuwymiarowa z punktu widzenia jego interface'u) przechowujacy podstawowe informacje o wszystkich polach na mapie gry
 AtomicWrapper<map<int, map<int,Wyspa> > > Wyspy;                 // zbior informacji o wyspach ( "dwuwymiarowa mapa" ), uszeregowanych wedlug ich wspolrzednych
 
-AtomicWrapper<vector<Wyspa> >             Top5;                  // wektor pieciu wysp, na ktorych na poczatku tury znajdowalo sie najwiecej patykow
+AtomicWrapper<set<Wyspa> >                Top5;                  // zbior pieciu wysp, na ktorych na poczatku tury znajdowalo sie najwiecej patykow
 
 AtomicWrapper<map<string, int> >          BPerDruzyna;           // liczba zywych zukoskoczkow danej druzyny
 AtomicWrapper<map<string, set<int> > >    RozbitkowiePerDruzyna; // zbior identyfikatorow zywych zukoskoczkow danej druzyny
@@ -297,6 +361,8 @@ NYI //TODO losowanie pozycji startowych B zuczkow, jezeli druzyna loguje sie po 
     komenda = myExplode(recieveString(handlerSocketu));
     
     if("DESCRIBE_WORLD" == komenda[0]){
+      
+      //TODO sprawdzenie ilosci argumentow
       
       sendString(handlerSocketu, "OK");
       
@@ -397,7 +463,7 @@ NYI //TODO
       
     }
     else
-      sendString(handlerSocketu, "FAILED 2 unknown command");
+      sendError(handlerSocketu, 2);
     
   }
   
@@ -421,7 +487,7 @@ void * watekAkceptora(void*){
     
     map<string, string>::iterator it = daneDruzyn.find(nazwaDruzynyKlienta);
     if(daneDruzyn.end() == it){
-      sendString(handlerSocketuKlienta, "FAILED 1 bad login or password");
+      sendError(handlerSocketuKlienta, 1);
       if(EOF == fclose(handlerSocketuKlienta)){SYS_ERROR("fclose error"); continue;}
     }
     else{
@@ -485,19 +551,50 @@ int main(int argc, char ** argv){
   
   /////
   
-  DescribeWorld nonatomic_ParametryRozgrywki(500, 8000, 2000, 20, 5, 8);
-  
-  ParametryRozgrywki.initialize(&nonatomic_ParametryRozgrywki);
-  
-  for(;;sleep(5)){
+  for(;;){ // petla po rundach
     
+    DescribeWorld             nonatomic_ParametryRozgrywki(500, 8000, 2000, 20, 5, 8);
+    GetSetWrapper<int>        nonatomic_PoczatkoweB(5);
+    GetSetWrapper<int>        nonatomic_L(1000);
+    GetSetWrapper<time_t>     nonatomic_Tstart(time(NULL));
+    GetSetWrapper<bool>       nonatomic_FireStatus(false);
+    vector<vector<Pole> >     nonatomic_Mapa(
+                                vector<vector<Pole> >(
+                                  nonatomic_ParametryRozgrywki.getN(),
+                                  vector<Pole>(nonatomic_ParametryRozgrywki.getN())
+                                )
+                              );
+  //   map<int, map<int,Wyspa> > nonatomic_Wyspy( blah blah blah );
+    set<Wyspa>                nonatomic_Top5;
+    
+    
+    
+    ParametryRozgrywki.initialize(&nonatomic_ParametryRozgrywki);
+    PoczatkoweB       .initialize(&nonatomic_PoczatkoweB);
+    L                 .initialize(&nonatomic_L);
+    Tstart            .initialize(&nonatomic_Tstart);
+    FireStatus        .initialize(&nonatomic_FireStatus);
+    Mapa              .initialize(&nonatomic_Mapa);
+  //   Wyspy             .initialize(&nonatomic_Wyspy);
+    Top5              .initialize(&nonatomic_Top5);
+
+  // AtomicWrapper<map<int, map<int,Wyspa> > > Wyspy;                 // zbior informacji o wyspach ( "dwuwymiarowa mapa" ), uszeregowanych wedlug ich wspolrzednych
+  // 
+  // AtomicWrapper<set<Wyspa> >             Top5;                  // zbior pieciu wysp, na ktorych na poczatku tury znajdowalo sie najwiecej patykow
+  // 
+  // AtomicWrapper<map<string, int> >          BPerDruzyna;           // liczba zywych zukoskoczkow danej druzyny
+  // AtomicWrapper<map<string, set<int> > >    RozbitkowiePerDruzyna; // zbior identyfikatorow zywych zukoskoczkow danej druzyny
+  // AtomicWrapper<map<string, MyWood> >       MyWoodPerDruzyna;      // informacje zwracane w odpowiedzi na komende MY_WOOD, przydatne rowniez przy obliczaniu rankingu, zwiazane z dana druzyna
+  // 
+  // AtomicWrapper<map<int, Zuczek> >          Zuczki;                // zbior zuczkow, uszeregowanych wedlug ich ID
+    
+    for(;L->get();sleep(5), L->set(L->get()-1)){ // petla po turach
+      
 NYI //TODO obsluga systemu turowego gry
+      
+    }
     
   }
-  
-  /////
-  
-  return 0;
 
 }
 
