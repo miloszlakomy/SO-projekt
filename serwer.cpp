@@ -538,6 +538,25 @@ AtomicWrapper<vector<Zuczek> >                            Zuczki;               
 
 /////
 
+int sprawdzZuczka(int ID, string nazwaDruzyny){ // funkcja zwraca 0 jesli zuczek istnieje i nalezy do zadanej druzyny, w przeciwnym przypadku zwraca kod bledu
+  
+  int ZuczkiSizeDummy = Zuczki->size();
+  set<int> rpdDummy = RozbitkowiePerDruzyna->find(nazwaDruzyny)->second;
+  
+  if(0 > ID || ID >= ZuczkiSizeDummy || rpdDummy.end() == rpdDummy.find(ID))
+    return 101;
+  
+  Zuczek zuczekDummy = Zuczki->at(ID);
+  
+  if(zuczekDummy.getUtopiony())
+    return 105;
+  
+  
+  return 0;
+}
+
+/////
+
 void * watekPerKlient(void* _arg){
   
   FILE * handlerSocketu = ((pair<FILE *, string> *)_arg)->first;
@@ -546,6 +565,8 @@ void * watekPerKlient(void* _arg){
   vector<string> komenda;
   
   for(;;){
+    
+    // TODO limit komend na turę
     
     komenda = myExplode(recieveString(handlerSocketu));
     
@@ -669,73 +690,67 @@ NYI //TODO
       else if(komenda.size() > 2) sendError(handlerSocketu, 4);
       else{
         
-        int ZuczkiSizeDummy = Zuczki->size();
-        set<int> rpdDummy = RozbitkowiePerDruzyna->find(nazwaDruzyny)->second;
+        int kodBledu;
         
         char * endptr;
         int ID = strtol(komenda[1].c_str(), &endptr, 0);
         if(*endptr)
           sendError(handlerSocketu, 3);
-        else if(0 > ID || ID >= ZuczkiSizeDummy || rpdDummy.end() == rpdDummy.find(ID))
-          sendError(handlerSocketu, 101);
+        else if(kodBledu = sprawdzZuczka(ID, nazwaDruzyny))
+          sendError(handlerSocketu, kodBledu);
         else{
           
           Zuczek zuczekDummy = Zuczki->at(ID);
           
-          if(zuczekDummy.getUtopiony())
-            sendError(handlerSocketu, 105);
-          else{
+          sendString(handlerSocketu, "OK");
+          
+          sendString(handlerSocketu,
+                     NumberToString(zuczekDummy.getZuczekCoords().first+1)  + " " +
+                     NumberToString(zuczekDummy.getZuczekCoords().second+1) + " " +
+                     NumberToString(zuczekDummy.getCarriedSticks())         + " " +
+                     NumberToString(zuczekDummy.getBusyAsString())          + " " +
+                     NumberToString(zuczekDummy.getRoleAsString())
+                    );
+          
+          const pair<int, int> Sasiedzi[] = {
+            make_pair( 0, 0),
+            make_pair( 1, 0),
+            make_pair( 0, 1),
+            make_pair(-1, 0),
+            make_pair( 0,-1)
+          };
+          
+          for(int i=0; i<sizeof(Sasiedzi)/sizeof(pair<int, int>); ++i){
             
-            sendString(handlerSocketu, "OK");
+            pair<int, int> fieldCoords = zuczekDummy.getZuczekCoords() + Sasiedzi[i];
             
-            sendString(handlerSocketu,
-                       NumberToString(zuczekDummy.getZuczekCoords().first+1)  + " " +
-                       NumberToString(zuczekDummy.getZuczekCoords().second+1) + " " +
-                       NumberToString(zuczekDummy.getCarriedSticks())         + " " +
-                       NumberToString(zuczekDummy.getBusyAsString())          + " " +
-                       NumberToString(zuczekDummy.getRoleAsString())
-                      );
+            int N_Dummy = ParametryRozgrywki->getN();
             
-            const pair<int, int> Sasiedzi[] = {
-              make_pair( 0, 0),
-              make_pair( 1, 0),
-              make_pair( 0, 1),
-              make_pair(-1, 0),
-              make_pair( 0,-1)
-            };
-            
-            for(int i=0; i<sizeof(Sasiedzi)/sizeof(pair<int, int>); ++i){
+            if(fieldCoords.first < 0        || fieldCoords.second < 0 ||
+               fieldCoords.first >= N_Dummy || fieldCoords.second >= N_Dummy)
+              sendString(handlerSocketu,
+                     "NIL"
+                    );
+            else{
               
-              pair<int, int> fieldCoords = zuczekDummy.getZuczekCoords() + Sasiedzi[i];
+              Pole PoleDummy = Mapa->at(fieldCoords.first).at(fieldCoords.second);
               
-              int N_Dummy = ParametryRozgrywki->getN();
-              
-              if(fieldCoords.first < 0        || fieldCoords.second < 0 ||
-                 fieldCoords.first >= N_Dummy || fieldCoords.second >= N_Dummy)
-                sendString(handlerSocketu,
-                       "NIL"
-                      );
-              else{
-                
-                Pole PoleDummy = Mapa->at(fieldCoords.first).at(fieldCoords.second);
-                
-                sendString(handlerSocketu,
-                           PoleDummy.getWyspaAsString()       + " " +
-                           NumberToString(Sasiedzi[i].first)  + " " +
-                           NumberToString(Sasiedzi[i].second) + " " +
-                           NumberToString(PoleDummy.getB())   + " " +
-                           NumberToString(PoleDummy.getG())   + " " +
-                           NumberToString(PoleDummy.getR_O()) + " " +
-                           NumberToString(PoleDummy.getR_A()) + " " +
-                           NumberToString(PoleDummy.getS_O()) + " " +
-                           NumberToString(PoleDummy.getS_A())
-                          );
-                
-              }
+              sendString(handlerSocketu,
+                         PoleDummy.getWyspaAsString()       + " " +
+                         NumberToString(Sasiedzi[i].first)  + " " +
+                         NumberToString(Sasiedzi[i].second) + " " +
+                         NumberToString(PoleDummy.getB())   + " " +
+                         NumberToString(PoleDummy.getG())   + " " +
+                         NumberToString(PoleDummy.getR_O()) + " " +
+                         NumberToString(PoleDummy.getR_A()) + " " +
+                         NumberToString(PoleDummy.getS_O()) + " " +
+                         NumberToString(PoleDummy.getS_A())
+                        );
               
             }
             
           }
+          
         }
       }
     }
