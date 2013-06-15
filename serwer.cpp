@@ -345,7 +345,26 @@ NYI //TODO
 };
 
 class MyWood{
-//TODO
+  
+  int T; // suma punktow przyznana druzynie za patyki lezace na wyspach (bez uwzgledniania wspolczynnika K)
+  int S; // liczba patykow oznakowanych przez druzyne i lezacych na wyspach
+  int C; // suma liczby patykow transportowanych przez druzyne (samodzielnie przez rozbitkow i na tratwach)
+  
+public:
+  
+  MyWood(int _T = 0, int _S = 0, int _C = 0):
+    T(_T),
+    S(_S),
+    C(_C){}
+  
+  int getT(){ return T; }
+  int getS(){ return S; }
+  int getC(){ return C; }
+  
+  void addToT(int val){ T += val; }
+  void addToS(int val){ S += val; }
+  void addToC(int val){ C += val; }
+  
 };
 
 class Zuczek{
@@ -625,7 +644,18 @@ NYI //TODO
     }
     else if("MY_WOOD" == komenda[0]){
       
-NYI //TODO
+      if(komenda.size() < 1) sendError(handlerSocketu, 3);
+      else if(komenda.size() > 1) sendError(handlerSocketu, 4);
+      else{
+        sendString(handlerSocketu, "OK");
+        
+        MyWood mwDummy = MyWoodPerDruzyna->find(nazwaDruzyny)->second;
+        sendString(handlerSocketu,
+                   NumberToString(mwDummy.getT())    + " " +
+                   NumberToString(mwDummy.getS())    + " " +
+                   NumberToString(mwDummy.getC())
+                  );
+      }
       
     }
     else if("WAIT" == komenda[0]){
@@ -862,11 +892,15 @@ int main(int argc, char ** argv){
 // // koniec niebezpiecznego kodu
     
     RozbitkowiePerDruzyna->clear();
+    MyWoodPerDruzyna     ->clear();
     
     for(map<string, string>::iterator daneIt = daneDruzyn.begin();
         daneDruzyn.end() != daneIt;
         ++daneIt
-    ) RozbitkowiePerDruzyna->insert(make_pair(daneIt->first, set<int>()));
+    ){
+      RozbitkowiePerDruzyna->insert(make_pair(daneIt->first, set<int>() ));
+      MyWoodPerDruzyna     ->insert(make_pair(daneIt->first, MyWood()   ));
+    }
     
     
     
@@ -890,6 +924,8 @@ int main(int argc, char ** argv){
         if(0 == (idZuczka+1)%dummy_PoczatkoweB) ++daneIt;
       }
     }
+    
+    
     
     for(;L->get();
         mySleep(ParametryRozgrywki->getT() - 0.1),
