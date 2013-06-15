@@ -30,6 +30,125 @@ void SYS_ERROR(string str){
 
 #define NYI SYS_ERROR("Not yet implemented.");
 
+/////
+
+class Mutex{
+  
+  pthread_mutex_t mutex;
+
+  Mutex& operator=(const Mutex&){}
+  Mutex(const Mutex&){}
+  
+public:
+  
+  Mutex(){
+    if(pthread_mutex_init(&mutex, NULL)){SYS_ERROR("pthread_mutex_init error"); exit(EXIT_CODE_COUNTER);}
+  }
+  
+  ~Mutex(){
+    if(pthread_mutex_destroy(&mutex)){SYS_ERROR("pthread_mutex_destroy error"); exit(EXIT_CODE_COUNTER);}
+  }
+  
+  void lock(){
+    if(pthread_mutex_lock(&mutex)){SYS_ERROR("pthread_mutex_lock error"); exit(EXIT_CODE_COUNTER);}
+  }
+  
+  void unlock(){
+    if(pthread_mutex_unlock(&mutex)){SYS_ERROR("pthread_mutex_unlock error"); exit(EXIT_CODE_COUNTER);}
+  }
+};
+
+template<typename T>
+class AtomicWrapper{
+  
+  class PtrWrapper{
+    
+    T* mPtr;
+    Mutex& mMutex;
+
+    //PtrWrapper(const PtrWrapper&&){}
+    PtrWrapper& operator=(const PtrWrapper&){}
+
+  public:
+
+    PtrWrapper(const PtrWrapper& copy):
+      mPtr(copy.mPtr),
+      mMutex(copy.mMutex){}
+
+    PtrWrapper(T* t, Mutex& m): mPtr(t), mMutex(m){
+        mMutex.lock();
+    }
+
+    ~PtrWrapper(){
+        mMutex.unlock();
+    }
+
+    T* operator->() const{
+        return mPtr;
+    }
+
+    T operator*(){
+      return *mPtr;
+    }
+    
+    template <typename U>
+    U runFunction(U (*function)(T&, void*), void * arg){
+      return (*function)(*mPtr, arg);
+    }
+    
+  };
+  
+  T* mInstance;
+  Mutex mMutex;
+  
+  //AtomicWrapper(const AtomicWrapper&&){}
+  AtomicWrapper& operator=(const AtomicWrapper&){}
+  AtomicWrapper(const AtomicWrapper&){}
+  
+public:
+  
+  AtomicWrapper(T* instance):mInstance(instance){}
+  AtomicWrapper():mInstance(NULL){}
+  
+  void initialize(T* instance){
+    mInstance = instance;
+  }
+
+  const PtrWrapper operator->(){
+    return PtrWrapper(mInstance, mMutex);
+  }
+
+  T operator*(){ // zwraca kopie trzymanego obiektu
+    return *PtrWrapper(mInstance, mMutex);
+  }
+  
+  template <typename U>
+  U runFunction(U (*function)(T&, void*), void * arg){
+    return PtrWrapper(mInstance, mMutex).runFunction(function, arg);
+  }
+  
+};
+
+/////
+
+template<typename T>
+class GetSetWrapper{
+  T val;
+  
+public:
+  
+  T get(){
+    return val;
+  }
+  
+  T set(T newVal){
+    val = newVal;
+  }
+  
+};
+
+/////
+
 void interrupt(int signo){ exit(0); }
 
 const string bialeZnaki = " \t\r";
@@ -41,11 +160,11 @@ vector<pair<FILE *, string> > handlerySocketowINazwyZespolowPerKlient;
 
 void clean()
 {
-        if(-1 != deskryptorSocketuAkceptora)
-          close(deskryptorSocketuAkceptora);
-        for(int i=0;i<handlerySocketowINazwyZespolowPerKlient.size();++i)
-          if(NULL != handlerySocketowINazwyZespolowPerKlient[i].first)
-            fclose(handlerySocketowINazwyZespolowPerKlient[i].first);
+  if(-1 != deskryptorSocketuAkceptora)
+    close(deskryptorSocketuAkceptora);
+  for(int i=0;i<handlerySocketowINazwyZespolowPerKlient.size();++i)
+    if(NULL != handlerySocketowINazwyZespolowPerKlient[i].first)
+      fclose(handlerySocketowINazwyZespolowPerKlient[i].first);
 }
 
 void sendString(FILE * handler, const string & wiadomosc, bool newline = true){
@@ -77,10 +196,42 @@ vector<string> myExplode(string const & explosives, string const & delimeters = 
   return ret;
 }
 
+/////
+// wartosci opisujace stan gry
+
+AtomicWrapper<GetSetWrapper<int> >        N,                    // dlugosc boku planszy
+                                          I,                    // liczba wysp na planszy
+                                          Smin,                 // minimalny rozmiar ogniska
+                                          F,                    // mnoznik punktow za patyki w ognisku
+                                          T,                    // czas trwania pojedynczej tury w sekundach
+                                          PoczatkoweB,          // ilosc zukoskoczkow na poczatku rundy
+                                          L;                    // liczba tur do konca rundy
+
+AtomicWrapper<GetSetWrapper<time_t> >     Tstart,               // czas, kiedy zaczela sie tura
+
+AtomicWrapper<GetSetWrapper<double> >     K;                    // wspolczynnik skalujacy wynik
+
+AtomicWrapper<GetSetWrapper<bool> >       FireStatus;           // czy plonie ognisko
+
+AtomicWrapper<vector<vector<Pole> > >     Mapa;                 // "wektor dwuwymiarowy" (praktycznie tablica dwuwymiarowa z punktu widzenia jego interface'u) przechowujacy podstawowe informacje o wszystkich polach na mapie gry
+AtomicWrapper<map<int, map<int,Wyspa> > > Wyspy;                // zbior informacji o wyspach ( "dwuwymiarowa mapa" ), uszeregowanych wedlug ich wspolrzednych
+
+AtomicWrapper<vector<Wyspa> >             Top5;                 // wektor pieciu wysp, na ktorych na poczatku tury znajdowalo sie najwiecej patykow
+
+AtomicWrapper<map<string, int> >          BPerKlient;           // liczba zywych zukoskoczkow danej druzyny
+AtomicWrapper<map<string, set<int> > >    RozbitkowiePerKlient; // zbior identyfikatorow zywych zukoskoczkow danej druzyny
+AtomicWrapper<map<string, MyWood> >       MyWoodPerKlient;      // informacje zwracane w odpowiedzi na komende MY_WOOD, przydatne rowniez przy obliczaniu rankingu, zwiazane z dana druzyna
+
+AtomicWrapper<map<int, Zuczek> >          Zuczki;               // zbior zuczkow, uszeregowanych wedlug ich ID
+
+/////
+
 void * watekPerKlient(void* _arg){
   
   FILE * handlerSocketu = ((pair<FILE *, string> *)_arg)->first;
   string nazwaDruzyny = ((pair<FILE *, string> *)_arg)->second;
+  
+NYI //TODO losowanie pozycji startowych B zuczkow, jezeli druzyna loguje sie po raz pierwszy w tej turze
   
   vector<string> komenda;
   
