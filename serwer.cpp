@@ -361,21 +361,24 @@ class Zuczek{
   int carriedSticks;
   int BusyCounter; // liczba tur, przez ktore zukoskoczek bedzie niedostepny wykonujac wczesniejsze rozkazy lub UNKNOWN dla straznikow
   RoleEnum Role;
+  bool utopiony;
   
 public:
   
   const static int UNKNOWN = -1;
   
-  Zuczek(const pair<int, int> & _zuczekCoords, int _carriedSticks = 0, int _BusyCounter = 0, RoleEnum _Role = NONE):
+  Zuczek(const pair<int, int> & _zuczekCoords, int _carriedSticks = 0, int _BusyCounter = 0, RoleEnum _Role = NONE, bool _utopiony = false):
     zuczekCoords(_zuczekCoords),
     carriedSticks(_carriedSticks),
     BusyCounter(_BusyCounter),
-    Role(_Role){}
+    Role(_Role),
+    utopiony(_utopiony){}
   
   pair<int, int> getZuczekCoords() { return zuczekCoords;  }
   int            getCarriedSticks(){ return carriedSticks; }
   int            getBusyCounter()  { return BusyCounter;   }
   RoleEnum       getRole()         { return Role;          }
+  bool           getUtopiony()     { return utopiony;      }
   
   void setCarriedSticks (int _carriedSticks){ carriedSticks = _carriedSticks; }
   void setRole          (RoleEnum _Role)    { Role = _Role;                   }
@@ -393,6 +396,10 @@ public:
   void decrementBusyCounterIfBusy(){
     if(BusyCounter > 0)
       --BusyCounter;
+  }
+  
+  void utopZuczka(){
+    utopiony = true;
   }
   
 };
@@ -810,8 +817,6 @@ int main(int argc, char ** argv){
       BPerDruzyna->insert(make_pair(it->first, dummy_PoczatkoweB));
     }
     
-    Wyspy.runFunction(generujTop5Fn);
-    
 // // niebezpieczny kod do debugu!!!
 //     
 //     for(int y=0;y<nonatomic_ParametryRozgrywki.getN();++y){
@@ -869,7 +874,17 @@ int main(int argc, char ** argv){
         Tstart->set(time(NULL))
        ){ // petla po turach
       
-NYI //TODO obsluga systemu turowego gry
+      Wyspy.runFunction(generujTop5Fn);
+      
+      int dummy_ZuczkiSize = Zuczki->size();
+      
+      for(int i=0; i<dummy_ZuczkiSize; ++i){
+        Zuczki->at(i).decrementBusyCounterIfBusy();
+        pair<int, int> zuczekCoords = Zuczki->at(i).getZuczekCoords();
+        if(Mapa->at(zuczekCoords.first).at(zuczekCoords.second).getWyspa() == false)
+          if(rand()%1000 == 0)
+            Zuczki->at(i).utopZuczka();
+      }
       
     }
     
