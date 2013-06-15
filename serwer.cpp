@@ -14,6 +14,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <set>
 
 using namespace std;
 
@@ -149,6 +150,24 @@ public:
 
 /////
 
+struct Pole{
+//TODO
+};
+
+struct Wyspa{
+//TODO
+};
+
+struct MyWood{
+//TODO
+};
+
+struct Zuczek{
+//TODO
+};
+
+/////
+
 void interrupt(int signo){ exit(0); }
 
 const string bialeZnaki = " \t\r";
@@ -199,30 +218,30 @@ vector<string> myExplode(string const & explosives, string const & delimeters = 
 /////
 // wartosci opisujace stan gry
 
-AtomicWrapper<GetSetWrapper<int> >        N,                    // dlugosc boku planszy
-                                          I,                    // liczba wysp na planszy
-                                          Smin,                 // minimalny rozmiar ogniska
-                                          F,                    // mnoznik punktow za patyki w ognisku
-                                          T,                    // czas trwania pojedynczej tury w sekundach
-                                          PoczatkoweB,          // ilosc zukoskoczkow na poczatku rundy
-                                          L;                    // liczba tur do konca rundy
+AtomicWrapper<GetSetWrapper<int> >        N,                     // dlugosc boku planszy
+                                          I,                     // liczba wysp na planszy
+                                          Smin,                  // minimalny rozmiar ogniska
+                                          F,                     // mnoznik punktow za patyki w ognisku
+                                          T,                     // czas trwania pojedynczej tury w sekundach
+                                          PoczatkoweB,           // ilosc zukoskoczkow na poczatku rundy
+                                          L;                     // liczba tur do konca rundy
 
-AtomicWrapper<GetSetWrapper<time_t> >     Tstart,               // czas, kiedy zaczela sie tura
+AtomicWrapper<GetSetWrapper<time_t> >     Tstart;                // czas, kiedy zaczela sie tura
 
-AtomicWrapper<GetSetWrapper<double> >     K;                    // wspolczynnik skalujacy wynik
+AtomicWrapper<GetSetWrapper<double> >     K;                     // wspolczynnik skalujacy wynik
 
-AtomicWrapper<GetSetWrapper<bool> >       FireStatus;           // czy plonie ognisko
+AtomicWrapper<GetSetWrapper<bool> >       FireStatus;            // czy plonie ognisko
 
-AtomicWrapper<vector<vector<Pole> > >     Mapa;                 // "wektor dwuwymiarowy" (praktycznie tablica dwuwymiarowa z punktu widzenia jego interface'u) przechowujacy podstawowe informacje o wszystkich polach na mapie gry
-AtomicWrapper<map<int, map<int,Wyspa> > > Wyspy;                // zbior informacji o wyspach ( "dwuwymiarowa mapa" ), uszeregowanych wedlug ich wspolrzednych
+AtomicWrapper<vector<vector<Pole> > >     Mapa;                  // "wektor dwuwymiarowy" (praktycznie tablica dwuwymiarowa z punktu widzenia jego interface'u) przechowujacy podstawowe informacje o wszystkich polach na mapie gry
+AtomicWrapper<map<int, map<int,Wyspa> > > Wyspy;                 // zbior informacji o wyspach ( "dwuwymiarowa mapa" ), uszeregowanych wedlug ich wspolrzednych
 
-AtomicWrapper<vector<Wyspa> >             Top5;                 // wektor pieciu wysp, na ktorych na poczatku tury znajdowalo sie najwiecej patykow
+AtomicWrapper<vector<Wyspa> >             Top5;                  // wektor pieciu wysp, na ktorych na poczatku tury znajdowalo sie najwiecej patykow
 
-AtomicWrapper<map<string, int> >          BPerKlient;           // liczba zywych zukoskoczkow danej druzyny
-AtomicWrapper<map<string, set<int> > >    RozbitkowiePerKlient; // zbior identyfikatorow zywych zukoskoczkow danej druzyny
-AtomicWrapper<map<string, MyWood> >       MyWoodPerKlient;      // informacje zwracane w odpowiedzi na komende MY_WOOD, przydatne rowniez przy obliczaniu rankingu, zwiazane z dana druzyna
+AtomicWrapper<map<string, int> >          BPerDruzyna;           // liczba zywych zukoskoczkow danej druzyny
+AtomicWrapper<map<string, set<int> > >    RozbitkowiePerDruzyna; // zbior identyfikatorow zywych zukoskoczkow danej druzyny
+AtomicWrapper<map<string, MyWood> >       MyWoodPerDruzynat;     // informacje zwracane w odpowiedzi na komende MY_WOOD, przydatne rowniez przy obliczaniu rankingu, zwiazane z dana druzyna
 
-AtomicWrapper<map<int, Zuczek> >          Zuczki;               // zbior zuczkow, uszeregowanych wedlug ich ID
+AtomicWrapper<map<int, Zuczek> >          Zuczki;                // zbior zuczkow, uszeregowanych wedlug ich ID
 
 /////
 
