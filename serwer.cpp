@@ -574,7 +574,29 @@ void * watekPerKlient(void* _arg){
     }
     else if("LIST_SURVIVORS" == komenda[0]){
       
-NYI //TODO
+      if(komenda.size() < 1) sendError(handlerSocketu, 3);
+      else if(komenda.size() > 1) sendError(handlerSocketu, 4);
+      else{
+        sendString(handlerSocketu, "OK");
+        
+        sendString(handlerSocketu,
+                   NumberToString(BPerDruzyna->find(nazwaDruzyny)->second)
+                  );
+        
+        set<int> rpdDummy = RozbitkowiePerDruzyna->find(nazwaDruzyny)->second;
+        
+        string msg = "";
+        
+        for(set<int>::iterator it = rpdDummy.begin(); rpdDummy.end() != it; ++it)
+          msg += NumberToString(*it) + " ";
+        
+        msg.erase(msg.size()-1);
+        
+        sendString(handlerSocketu,
+                   msg
+                  );
+        
+      }
       
     }
     else if("LIST_RAFTS" == komenda[0]){
