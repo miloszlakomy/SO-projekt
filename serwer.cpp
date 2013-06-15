@@ -1042,10 +1042,9 @@ int main(int argc, char ** argv){
       }
     }
     
-    
+    cout << "*** Nowa runda ***" << endl;
     
     for(;L->get();
-        mySleep(ParametryRozgrywki->getT() - 0.1),
         L->set((*L).get()-1), // kopiujemy L, odejmujemy 1 od kopii i przypisujemy
         Tstart->set(time(NULL))
        ){ // petla po turach
@@ -1062,6 +1061,10 @@ int main(int argc, char ** argv){
             Zuczki->at(i).utopZuczka();
       }
       
+      time_t T_dummy = ParametryRozgrywki->getT();
+      mySleep(T_dummy - 0.1);
+      
+      cout << "Nowa tura." << endl;
     }
     
   }
