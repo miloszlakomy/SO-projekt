@@ -315,6 +315,11 @@ public:
   int  getS_O  (){ return S_O;   }
   int  getS_A  (){ return S_A;   }
   
+  string getWyspaAsString(){
+    if(wyspa) return "LAND";
+    return "WATER";
+  }
+  
   void incrementB(){ ++B; }
   void decrementB(){
     if(0 == B){SYS_ERROR("Dekrementacja ilosci zuczkow na polu, gdzie nie ma zuczkow."); exit(EXIT_CODE_COUNTER);}
@@ -398,6 +403,25 @@ public:
   int            getBusyCounter()  { return BusyCounter;   }
   RoleEnum       getRole()         { return Role;          }
   bool           getUtopiony()     { return utopiony;      }
+  
+  string getBusyAsString(){
+    if(UNKNOWN == BusyCounter)
+      return "UNKNOWN";
+    
+    return NumberToString(BusyCounter);
+  }
+  string getRoleAsString(){
+    
+    switch(Role){
+      case GUARD:   return "GUARD";
+      case CAPTAIN: return "CAPTAIN";
+      case BUILDER: return "BUILDER";
+      case NONE:    return "NONE";
+    }
+    
+    SYS_ERROR("Jezeli program doszedl do tego miejsca, cos jest nie w porzadku."); exit(EXIT_CODE_COUNTER);
+    
+  }
   
   void setCarriedSticks (int _carriedSticks){ carriedSticks = _carriedSticks; }
   void setRole          (RoleEnum _Role)    { Role = _Role;                   }
@@ -564,8 +588,8 @@ void * watekPerKlient(void* _arg){
             t5Dummy.end() != it;
             ++it)
           sendString(handlerSocketu,
-                     NumberToString(it->getCoords().first)  + " " +
-                     NumberToString(it->getCoords().second) + " " +
+                     NumberToString(it->getCoords().first+1)  + " " +
+                     NumberToString(it->getCoords().second+1) + " " +
                      NumberToString(it->getSticks())
                     );
         
@@ -641,8 +665,79 @@ NYI //TODO
     }
     else if("INFO" == komenda[0]){
       
-NYI //TODO
-      
+      if(komenda.size() < 2) sendError(handlerSocketu, 3);
+      else if(komenda.size() > 2) sendError(handlerSocketu, 4);
+      else{
+        
+        int ZuczkiSizeDummy = Zuczki->size();
+        set<int> rpdDummy = RozbitkowiePerDruzyna->find(nazwaDruzyny)->second;
+        
+        char * endptr;
+        int ID = strtol(komenda[1].c_str(), &endptr, 0);
+        if(*endptr)
+          sendError(handlerSocketu, 3);
+        else if(0 > ID || ID >= ZuczkiSizeDummy || rpdDummy.end() == rpdDummy.find(ID))
+          sendError(handlerSocketu, 101);
+        else{
+          
+          Zuczek zuczekDummy = Zuczki->at(ID);
+          
+          if(zuczekDummy.getUtopiony())
+            sendError(handlerSocketu, 105);
+          else{
+            
+            sendString(handlerSocketu, "OK");
+            
+            sendString(handlerSocketu,
+                       NumberToString(zuczekDummy.getZuczekCoords().first+1)  + " " +
+                       NumberToString(zuczekDummy.getZuczekCoords().second+1) + " " +
+                       NumberToString(zuczekDummy.getCarriedSticks())         + " " +
+                       NumberToString(zuczekDummy.getBusyAsString())          + " " +
+                       NumberToString(zuczekDummy.getRoleAsString())
+                      );
+            
+            const pair<int, int> Sasiedzi[] = {
+              make_pair( 0, 0),
+              make_pair( 1, 0),
+              make_pair( 0, 1),
+              make_pair(-1, 0),
+              make_pair( 0,-1)
+            };
+            
+            for(int i=0; i<sizeof(Sasiedzi)/sizeof(pair<int, int>); ++i){
+              
+              pair<int, int> fieldCoords = zuczekDummy.getZuczekCoords() + Sasiedzi[i];
+              
+              int N_Dummy = ParametryRozgrywki->getN();
+              
+              if(fieldCoords.first < 0        || fieldCoords.second < 0 ||
+                 fieldCoords.first >= N_Dummy || fieldCoords.second >= N_Dummy)
+                sendString(handlerSocketu,
+                       "NIL"
+                      );
+              else{
+                
+                Pole PoleDummy = Mapa->at(fieldCoords.first).at(fieldCoords.second);
+                
+                sendString(handlerSocketu,
+                           PoleDummy.getWyspaAsString()       + " " +
+                           NumberToString(Sasiedzi[i].first)  + " " +
+                           NumberToString(Sasiedzi[i].second) + " " +
+                           NumberToString(PoleDummy.getB())   + " " +
+                           NumberToString(PoleDummy.getG())   + " " +
+                           NumberToString(PoleDummy.getR_O()) + " " +
+                           NumberToString(PoleDummy.getR_A()) + " " +
+                           NumberToString(PoleDummy.getS_O()) + " " +
+                           NumberToString(PoleDummy.getS_A())
+                          );
+                
+              }
+              
+            }
+            
+          }
+        }
+      }
     }
     else if("BUILD" == komenda[0]){
       
@@ -849,7 +944,7 @@ int main(int argc, char ** argv){
   set<Top5_Element, greater<Top5_Element> > nonatomic_Top5;
   map<string, int>                          nonatomic_BPerDruzyna;
   map<string, set<int> >                    nonatomic_RozbitkowiePerDruzyna;
-  map<string, MyWood>                       nonatomic_MyWoodPerDruzyna; //TODO
+  map<string, MyWood>                       nonatomic_MyWoodPerDruzyna;
   vector<Zuczek>                            nonatomic_Zuczki;
   
   
@@ -985,7 +1080,7 @@ bool czyMoznaPostawicWyspe(const map<pair<int, int>, Wyspa> & unwrapped_Wyspy, c
     make_pair( 0,-1)
   };
   
-  for(int i=0;i<sizeof(Sasiedzi);++i)
+  for(int i=0;i<sizeof(Sasiedzi)/sizeof(pair<int, int>);++i)
     if(unwrapped_Wyspy.end() != unwrapped_Wyspy.find(newIslandsCoords+Sasiedzi[i]) ) return false;
   
   return true;
