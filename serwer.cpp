@@ -34,6 +34,13 @@ void SYS_ERROR(string str){
 
 #define NYI SYS_ERROR("Not yet implemented.");
 
+void mySleep(double czas){
+  struct timespec req;
+  req.tv_sec = (time_t)floor(czas); /* seconds */
+  req.tv_nsec = (long)( ( czas - floor(czas) ) * 1e9 ); /* nanoseconds */
+  nanosleep(&req, NULL);
+}
+
 /////
 
 class Mutex{
@@ -308,6 +315,12 @@ public:
   int  getS_O  (){ return S_O;   }
   int  getS_A  (){ return S_A;   }
   
+  void incrementB(){ ++B; }
+  void decrementB(){
+    if(0 == B){SYS_ERROR("Dekrementacja ilosci zuczkow na polu, gdzie nie ma zuczkow."); exit(EXIT_CODE_COUNTER);}
+    --B;
+  }
+  
 };
 
 class Wyspa{
@@ -336,10 +349,56 @@ class MyWood{
 };
 
 class Zuczek{
-//TODO
+  
+  enum RoleEnum{
+    GUARD,
+    CAPTAIN,
+    BUILDER,
+    NONE
+  };
+  
+  pair<int, int> zuczekCoords;
+  int carriedSticks;
+  int BusyCounter; // liczba tur, przez ktore zukoskoczek bedzie niedostepny wykonujac wczesniejsze rozkazy lub UNKNOWN dla straznikow
+  RoleEnum Role;
+  
+public:
+  
+  const static int UNKNOWN = -1;
+  
+  Zuczek(const pair<int, int> & _zuczekCoords, int _carriedSticks = 0, int _BusyCounter = 0, RoleEnum _Role = NONE):
+    zuczekCoords(_zuczekCoords),
+    carriedSticks(_carriedSticks),
+    BusyCounter(_BusyCounter),
+    Role(_Role){}
+  
+  pair<int, int> getZuczekCoords() { return zuczekCoords;  }
+  int            getCarriedSticks(){ return carriedSticks; }
+  int            getBusyCounter()  { return BusyCounter;   }
+  RoleEnum       getRole()         { return Role;          }
+  
+  void setCarriedSticks (int _carriedSticks){ carriedSticks = _carriedSticks; }
+  void setRole          (RoleEnum _Role)    { Role = _Role;                   }
+  
+  void move(int dX, int dY){
+    if(1 != abs(dX) &&
+       1 != abs(dY) &&
+       1 != abs(dX+dY)
+    ) {SYS_ERROR("Proba przesuniecia zuczka o inna liczbe pol niz 1."); exit(EXIT_CODE_COUNTER);}
+    
+    zuczekCoords.first  += dX;
+    zuczekCoords.second += dY;
+  }
+  
+  void decrementBusyCounterIfBusy(){
+    if(BusyCounter > 0)
+      --BusyCounter;
+  }
+  
 };
 
 class DescribeWorld{
+  
   int N,    // dlugosc boku planszy
       I,    // liczba wysp na planszy
       Smin, // minimalny rozmiar ogniska
@@ -374,6 +433,7 @@ public:
   int    getF   (){ return F;    }
   int    getT   (){ return T;    }
   double getK   (){ return K;    }
+  
 };
 
 class Top5_Element{
@@ -404,26 +464,27 @@ public:
 /////
 // wartosci opisujace stan gry
 
-AtomicWrapper<DescribeWorld>               ParametryRozgrywki;    // parametry rozgrywki i wartosc wspolczynnika skalujacego wynik
+AtomicWrapper<DescribeWorld>                              ParametryRozgrywki;    // parametry rozgrywki i wartosc wspolczynnika skalujacego wynik
 
 
-AtomicWrapper<GetSetWrapper<int> >         PoczatkoweB,           // ilosc zukoskoczkow na poczatku rundy
-                                           L;                     // liczba tur do konca rundy
+AtomicWrapper<GetSetWrapper<int> >                        PoczatkoweB,           // ilosc zukoskoczkow na poczatku rundy
+                                                          L;                     // liczba tur do konca rundy
 
-AtomicWrapper<GetSetWrapper<time_t> >      Tstart;                // czas, kiedy zaczela sie tura
+AtomicWrapper<GetSetWrapper<time_t> >                     Tstart;                // czas, kiedy zaczela sie tura
 
-AtomicWrapper<GetSetWrapper<bool> >        FireStatus;            // czy plonie ognisko
+AtomicWrapper<GetSetWrapper<bool> >                       FireStatus;            // czy plonie ognisko
 
-AtomicWrapper<vector<vector<Pole> > >      Mapa;                  // "wektor dwuwymiarowy" przechowujacy podstawowe informacje o wszystkich polach na mapie gry
-AtomicWrapper<map<pair<int, int>, Wyspa> > Wyspy;                 // zbior informacji o wyspach, uszeregowanych wedlug ich wspolrzednych
+AtomicWrapper<vector<vector<Pole> > >                     Mapa;                  // "wektor dwuwymiarowy" przechowujacy podstawowe informacje o wszystkich polach na mapie gry
+AtomicWrapper<map<pair<int, int>, Wyspa> >                Wyspy;                 // zbior informacji o wyspach, uszeregowanych wedlug ich wspolrzednych
+AtomicWrapper<vector<pair<int, int> > >                   WyspyKeys;             // wektor zawierajacy wszystkie klucze mapy przechowywanej przez Wyspy
 
-AtomicWrapper<set<Top5_Element, greater<Top5_Element> > >          Top5;                  // zbior pieciu wysp, na ktorych na poczatku tury znajdowalo sie najwiecej patykow
+AtomicWrapper<set<Top5_Element, greater<Top5_Element> > > Top5;                  // zbior pieciu wysp, na ktorych na poczatku tury znajdowalo sie najwiecej patykow
 
-AtomicWrapper<map<string, int> >           BPerDruzyna;           // liczba zywych zukoskoczkow danej druzyny
-AtomicWrapper<map<string, set<int> > >     RozbitkowiePerDruzyna; // zbior identyfikatorow zywych zukoskoczkow danej druzyny
-AtomicWrapper<map<string, MyWood> >        MyWoodPerDruzyna;      // informacje zwracane w odpowiedzi na komende MY_WOOD, przydatne rowniez przy obliczaniu rankingu, zwiazane z dana druzyna
+AtomicWrapper<map<string, int> >                          BPerDruzyna;           // liczba zywych zukoskoczkow danej druzyny
+AtomicWrapper<map<string, set<int> > >                    RozbitkowiePerDruzyna; // zbior identyfikatorow zywych zukoskoczkow danej druzyny
+AtomicWrapper<map<string, MyWood> >                       MyWoodPerDruzyna;      // informacje zwracane w odpowiedzi na komende MY_WOOD, przydatne rowniez przy obliczaniu rankingu, zwiazane z dana druzyna
 
-AtomicWrapper<map<int, Zuczek> >           Zuczki;                // zbior zuczkow, uszeregowanych wedlug ich ID
+AtomicWrapper<vector<Zuczek> >                            Zuczki;                // zbior zuczkow, indeks zuczka w tym wektorze to jego identyfikator
 
 /////
 
@@ -702,11 +763,12 @@ int main(int argc, char ** argv){
   GetSetWrapper<bool>                       nonatomic_FireStatus;
   vector<vector<Pole> >                     nonatomic_Mapa;
   map<pair<int, int>, Wyspa>                nonatomic_Wyspy;
+  vector<pair<int, int> >                   nonatomic_WyspyKeys;
   set<Top5_Element, greater<Top5_Element> > nonatomic_Top5;
   map<string, int>                          nonatomic_BPerDruzyna;
-  map<string, set<int> >                    nonatomic_RozbitkowiePerDruzyna; //TODO
+  map<string, set<int> >                    nonatomic_RozbitkowiePerDruzyna;
   map<string, MyWood>                       nonatomic_MyWoodPerDruzyna; //TODO
-  map<int, Zuczek>                          nonatomic_Zuczki; //TODO
+  vector<Zuczek>                            nonatomic_Zuczki;
   
   
   ParametryRozgrywki   .initialize(&nonatomic_ParametryRozgrywki);
@@ -716,6 +778,7 @@ int main(int argc, char ** argv){
   FireStatus           .initialize(&nonatomic_FireStatus);
   Mapa                 .initialize(&nonatomic_Mapa);
   Wyspy                .initialize(&nonatomic_Wyspy);
+  WyspyKeys            .initialize(&nonatomic_WyspyKeys);
   Top5                 .initialize(&nonatomic_Top5);
   BPerDruzyna          .initialize(&nonatomic_BPerDruzyna);
   RozbitkowiePerDruzyna.initialize(&nonatomic_RozbitkowiePerDruzyna);
@@ -770,10 +833,38 @@ int main(int argc, char ** argv){
 //     
 // // koniec niebezpiecznego kodu
     
-NYI return EXIT_CODE_COUNTER; //TODO losowanie pozycji startowych zuczkow
+    RozbitkowiePerDruzyna->clear();
+    
+    for(map<string, string>::iterator daneIt = daneDruzyn.begin();
+        daneDruzyn.end() != daneIt;
+        ++daneIt
+    ) RozbitkowiePerDruzyna->insert(make_pair(daneIt->first, set<int>()));
+    
+    
+    
+    Zuczki->clear();
+    
+    {
+      map<string, string>::iterator daneIt = daneDruzyn.begin();
+      for(int idZuczka = 0; idZuczka < daneDruzyn.size()*dummy_PoczatkoweB; ++idZuczka){
+        
+        string nazwaDruzynyZuczka = daneIt->first;
+        
+        int indeksWyspyZuczka = rand() % WyspyKeys->size();
+        pair<int, int> zuczekCoords = WyspyKeys->at(indeksWyspyZuczka);
+        
+        Mapa->at(zuczekCoords.first).at(zuczekCoords.second).incrementB();
+        
+        Zuczki->push_back(Zuczek(zuczekCoords));
+        
+        RozbitkowiePerDruzyna->find(nazwaDruzynyZuczka)->second.insert(idZuczka);
+        
+        if(0 == (idZuczka+1)%dummy_PoczatkoweB) ++daneIt;
+      }
+    }
     
     for(;L->get();
-        sleep(ParametryRozgrywki->getT() - 0.1),
+        mySleep(ParametryRozgrywki->getT() - 0.1),
         L->set((*L).get()-1), // kopiujemy L, odejmujemy 1 od kopii i przypisujemy
         Tstart->set(time(NULL))
        ){ // petla po turach
@@ -820,6 +911,7 @@ void zerujMapeFn(vector<vector<Pole> > & unwrapped_Mapa, void *){
 void losujWyspyFn(map<pair<int, int>, Wyspa> & unwrapped_Wyspy, void *){
   
   unwrapped_Wyspy.clear();
+  WyspyKeys->clear();
   
   int dummy_I    = ParametryRozgrywki->getI(),
       dummy_N    = ParametryRozgrywki->getN(),
@@ -832,6 +924,7 @@ void losujWyspyFn(map<pair<int, int>, Wyspa> & unwrapped_Wyspy, void *){
     int iloscPatykowNaNowejWyspie = rand()%20 + (dummy_Smin+dummy_I-1)/dummy_I;
     unwrapped_Wyspy.insert(make_pair(newIslandsCoords, Wyspa(iloscPatykowNaNowejWyspie)));
     Mapa->at(newIslandsCoords.first).at(newIslandsCoords.second).setWyspa(true);
+    WyspyKeys->push_back(newIslandsCoords);
   }
   
 }
