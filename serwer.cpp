@@ -570,8 +570,8 @@ int main(int argc, char ** argv){
   
   srand(time(NULL));
   
-  if(2 > argc || argc > 7){SYS_ERROR("Uzycie:\n"
-                          "./serwer numerPortu czasTrwaniaTury=5 dlugoscBokuPlanszy=100 liczbaWysp=500 minimalnyRozmiarOgniska=1000 mnoznikPunktowZaPatykiWOgnisku=10\n"
+  if(2 > argc || argc > 8){SYS_ERROR("Uzycie:\n"
+                          "./serwer numerPortu czasTrwaniaTury=5 dlugoscBokuPlanszy=100 liczbaWysp=500 minimalnyRozmiarOgniska=1000 mnoznikPunktowZaPatykiWOgnisku=10 maksymalnaIloscTurNaRunde=1000\n"
                           "\n"
                           "kolejne argumenty przyjmuja wartosci z nastepujacych przedzialow:\n"
                           "\n"
@@ -581,6 +581,7 @@ int main(int argc, char ** argv){
                           "liczbaWysp - [500;min(8000,dlugoscBokuPlanszy**2/5)]\n"
                           "minimalnyRozmiarOgniska - [1000;2000]\n"
                           "mnoznikPunktowZaPatykiWOgnisku - [10;20]\n"
+                          "maksymalnaIloscTurNaRunde - [1000;10000]\n"
                           "\n"); return EXIT_CODE_COUNTER;}
   
   char * endptr;
@@ -596,6 +597,7 @@ int main(int argc, char ** argv){
   int liczbaWysp = 500;
   int minimalnyRozmiarOgniska = 1000;
   int mnoznikPunktowZaPatykiWOgnisku = 10;
+  int maksymalnaIloscTurNaRunde = 1000;
   
   if(argc > 2){
     czasTrwaniaTury = strtol(argv[2], &endptr, 0);
@@ -609,7 +611,7 @@ int main(int argc, char ** argv){
   
   if(argc > 4){
     liczbaWysp = strtol(argv[4], &endptr, 0);
-    if(*endptr || 500 > liczbaWysp || liczbaWysp > min(8000, dlugoscBokuPlanszy*dlugoscBokuPlanszy/5)){SYS_ERROR("Liczba wysp musi byc liczba calkowita z przedzialu [100;" + NumberToString(min(8000, dlugoscBokuPlanszy*dlugoscBokuPlanszy/5)) + "] (ogolniej [500;min(8000,dlugoscBokuPlanszy**2/5)])."); return EXIT_CODE_COUNTER;}
+    if(*endptr || 500 > liczbaWysp || liczbaWysp > min(8000, dlugoscBokuPlanszy*dlugoscBokuPlanszy/5)){SYS_ERROR("Liczba wysp musi byc liczba calkowita z przedzialu [500;" + NumberToString(min(8000, dlugoscBokuPlanszy*dlugoscBokuPlanszy/5)) + "] (ogolniej [500;min(8000,dlugoscBokuPlanszy**2/5)])."); return EXIT_CODE_COUNTER;}
   }
   
   if(argc > 5){
@@ -620,6 +622,11 @@ int main(int argc, char ** argv){
   if(argc > 6){
     mnoznikPunktowZaPatykiWOgnisku = strtol(argv[6], &endptr, 0);
     if(*endptr || 10 > mnoznikPunktowZaPatykiWOgnisku || mnoznikPunktowZaPatykiWOgnisku > 20){SYS_ERROR("Mnoznik punktow za patyki w ognisku musi byc liczba calkowita z przedzialu [10;20]."); return EXIT_CODE_COUNTER;}
+  }
+  
+  if(argc > 7){
+    maksymalnaIloscTurNaRunde = strtol(argv[7], &endptr, 0);
+    if(*endptr || 1000 > maksymalnaIloscTurNaRunde || maksymalnaIloscTurNaRunde > 10000){SYS_ERROR("Maksymalna ilosc tur na runde musi byc liczba calkowita z przedzialu [1000;10000]."); return EXIT_CODE_COUNTER;}
   }
   
   /////
@@ -699,7 +706,7 @@ int main(int argc, char ** argv){
     
     ParametryRozgrywki ->setK(pow(Pod, time(NULL)-CzasStartuGry));
     PoczatkoweB        ->set(dummy_PoczatkoweB);
-    L                  ->set(1000);
+    L                  ->set(maksymalnaIloscTurNaRunde);
     Tstart             ->set(time(NULL));
     FireStatus         ->set(false);
     
