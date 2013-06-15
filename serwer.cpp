@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
+#include <climits>
 
 #include <iostream>
 #include <fstream>
@@ -569,13 +570,57 @@ int main(int argc, char ** argv){
   
   srand(time(NULL));
   
-  if(2 != argc){SYS_ERROR("Uzycie: ./serwer numerPortu\n"); return EXIT_CODE_COUNTER;}
+  if(2 > argc || argc > 7){SYS_ERROR("Uzycie:\n"
+                          "./serwer numerPortu czasTrwaniaTury=5 dlugoscBokuPlanszy=100 liczbaWysp=500 minimalnyRozmiarOgniska=1000 mnoznikPunktowZaPatykiWOgnisku=10\n"
+                          "\n"
+                          "kolejne argumenty przyjmuja wartosci z nastepujacych przedzialow:\n"
+                          "\n"
+                          "numerPortu - [1024;65535]\n"
+                          "czasTrwaniaTury - [1;5]\n"
+                          "dlugoscBokuPlanszy - [100;500]\n"
+                          "liczbaWysp - [500;min(8000,dlugoscBokuPlanszy**2/5)]\n"
+                          "minimalnyRozmiarOgniska - [1000;2000]\n"
+                          "mnoznikPunktowZaPatykiWOgnisku - [10;20]\n"
+                          "\n"); return EXIT_CODE_COUNTER;}
   
   char * endptr;
   int numerPortu = strtol(argv[1], &endptr, 0);
-  if(*endptr || numerPortu < 0){SYS_ERROR("Numer portu musi byc nieujemna liczba calkowita."); return EXIT_CODE_COUNTER;}
+  if(*endptr || 1024 > numerPortu || numerPortu > 65535){SYS_ERROR("Numer portu musi byc liczba calkowita z przedzialu [1024;65535]."); return EXIT_CODE_COUNTER;}
   
   const time_t CzasStartuGry = time(NULL);
+  
+  /////
+  
+  int czasTrwaniaTury = 5;
+  int dlugoscBokuPlanszy = 100;
+  int liczbaWysp = 500;
+  int minimalnyRozmiarOgniska = 1000;
+  int mnoznikPunktowZaPatykiWOgnisku = 10;
+  
+  if(argc > 2){
+    czasTrwaniaTury = strtol(argv[2], &endptr, 0);
+    if(*endptr || 1 > czasTrwaniaTury || czasTrwaniaTury > 5){SYS_ERROR("Czas trwania tury musi byc liczba calkowita z przedzialu [1;5]."); return EXIT_CODE_COUNTER;}
+  }
+  
+  if(argc > 3){
+    dlugoscBokuPlanszy = strtol(argv[3], &endptr, 0);
+    if(*endptr || 100 > dlugoscBokuPlanszy || dlugoscBokuPlanszy > 500){SYS_ERROR("Dlugosc boku planszy musi byc liczba calkowita z przedzialu [100;500]."); return EXIT_CODE_COUNTER;}
+  }
+  
+  if(argc > 4){
+    liczbaWysp = strtol(argv[4], &endptr, 0);
+    if(*endptr || 500 > liczbaWysp || liczbaWysp > min(8000, dlugoscBokuPlanszy*dlugoscBokuPlanszy/5)){SYS_ERROR("Liczba wysp musi byc liczba calkowita z przedzialu [100;" + NumberToString(min(8000, dlugoscBokuPlanszy*dlugoscBokuPlanszy/5)) + "] (ogolniej [500;min(8000,dlugoscBokuPlanszy**2/5)])."); return EXIT_CODE_COUNTER;}
+  }
+  
+  if(argc > 5){
+    minimalnyRozmiarOgniska = strtol(argv[5], &endptr, 0);
+    if(*endptr || 1000 > minimalnyRozmiarOgniska || minimalnyRozmiarOgniska > 2000){SYS_ERROR("Minimalny rozmiar ogniska musi byc liczba calkowita z przedzialu [1000;2000]."); return EXIT_CODE_COUNTER;}
+  }
+  
+  if(argc > 6){
+    mnoznikPunktowZaPatykiWOgnisku = strtol(argv[6], &endptr, 0);
+    if(*endptr || 10 > mnoznikPunktowZaPatykiWOgnisku || mnoznikPunktowZaPatykiWOgnisku > 20){SYS_ERROR("Mnoznik punktow za patyki w ognisku musi byc liczba calkowita z przedzialu [10;20]."); return EXIT_CODE_COUNTER;}
+  }
   
   /////
   
@@ -617,7 +662,7 @@ int main(int argc, char ** argv){
   
   /////
   
-  DescribeWorld              nonatomic_ParametryRozgrywki(500, 8000, 2000, 20, 5, 1.);
+  DescribeWorld              nonatomic_ParametryRozgrywki(dlugoscBokuPlanszy, liczbaWysp, minimalnyRozmiarOgniska, mnoznikPunktowZaPatykiWOgnisku, czasTrwaniaTury, 1.);
   GetSetWrapper<int>         nonatomic_PoczatkoweB;
   GetSetWrapper<int>         nonatomic_L;
   GetSetWrapper<time_t>      nonatomic_Tstart;
@@ -669,7 +714,21 @@ int main(int argc, char ** argv){
       BPerDruzyna->insert(make_pair(it->first, dummy_PoczatkoweB));
     }
     
-    
+// // niebezpieczny kod do debugu!!!
+//     
+//     for(int y=0;y<nonatomic_ParametryRozgrywki.getN();++y){
+//       for(int x=0;x<nonatomic_ParametryRozgrywki.getN();++x){
+//         if(nonatomic_Mapa[x][y].getWyspa()){
+//           cout << "#(" << nonatomic_Wyspy.find(make_pair(x,y))->second.getSticks() << ')';
+//           x += NumberToString(nonatomic_Wyspy.find(make_pair(x,y))->second.getSticks()).size()+2;
+//         }
+//         else
+//           cout << '.';
+//       }
+//       cout << endl;
+//     }
+//     
+// // koniec niebezpiecznego kodu
     
 NYI return EXIT_CODE_COUNTER; //TODO losowanie pozycji startowych zuczkow
     
@@ -730,7 +789,7 @@ void losujWyspy(map<pair<int, int>, Wyspa> & unwrapped_Wyspy, void *){
     pair<int, int> newIslandsCoords;
     do newIslandsCoords = make_pair(rand()%dummy_N, rand()%dummy_N); while(!czyMoznaPostawicWyspe(unwrapped_Wyspy, newIslandsCoords));
     
-    int iloscPatykowNaNowejWyspie = rand()%(dummy_Smin/2);
+    int iloscPatykowNaNowejWyspie = rand()%20 + (dummy_Smin+dummy_I-1)/dummy_I;
     unwrapped_Wyspy.insert(make_pair(newIslandsCoords, Wyspa(iloscPatykowNaNowejWyspie)));
     Mapa->at(newIslandsCoords.first).at(newIslandsCoords.second).setWyspa(true);
   }
