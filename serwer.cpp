@@ -309,5 +309,9 @@ int main(int argc, char ** argv){
     
 //       cout << "Nowa tura." << endl;
   }
-
+  
+  
+  //TODO wypisywanie punktacji
+  
+  return 0;
 }

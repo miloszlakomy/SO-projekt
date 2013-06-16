@@ -1,7 +1,7 @@
 #ifndef WATEKPERKLIENT_HPP
 #define WATEKPERKLIENT_HPP
 
-
+// TODO refaktoryzacja - funkcje sprawdzajace czy zachodza bledy i wysylajace je do klientow
 
 int sprawdzZuczka(int ID, string nazwaDruzyny){ // funkcja zwraca 0 jesli zuczek istnieje i nalezy do zadanej druzyny, w przeciwnym przypadku zwraca kod bledu
   
@@ -152,6 +152,8 @@ NYI //TODO
           
           if(Mapa->at(zuczekDummy.getZuczekCoords().first).at(zuczekDummy.getZuczekCoords().second).getWyspa() == false)
             sendError(handlerSocketu, 104);
+          else if(Wyspy->find(zuczekDummy.getZuczekCoords())->second.getSticks() < ParametryRozgrywki->getSmin())
+            sendError(handlerSocketu, 107);
           else{
             
             sendString(handlerSocketu, "OK");
@@ -271,6 +273,8 @@ NYI //TODO
           
           if(Mapa->at(zuczekDummy.getZuczekCoords().first).at(zuczekDummy.getZuczekCoords().second).getWyspa() == false)
             sendError(handlerSocketu, 104);
+          else if(Zuczki->at(ID).getCarriedSticks() == 0)
+            sendError(handlerSocketu, 108);
           else{
             
             sendString(handlerSocketu, "OK");
