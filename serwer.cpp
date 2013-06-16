@@ -339,6 +339,12 @@ public:
   
   int getSticks(){ return Sticks; }
   
+  int getTeamsSticks(string nazwaDruzyny){
+    map<string, int>::iterator it = teamSticks.find(nazwaDruzyny);
+    if(teamSticks.end() == it) return 0;
+    return it->second;
+  }
+  
   int takeSticks(int howMany, string nazwaDruzyny){
 NYI //TODO
   }
@@ -511,6 +517,16 @@ public:
   
 };
 
+struct ListWoodResult{
+  
+  pair<int, int> zuczekCoords;
+  vector<pair<pair<int,int>, Wyspa> > wspolrzedneIDaneWysp;
+  
+  ListWoodResult(const pair<int, int> & _zuczekCoords):
+    zuczekCoords(_zuczekCoords){}
+  
+};
+
 /////
 // wartosci opisujace stan gry
 
@@ -535,6 +551,13 @@ AtomicWrapper<map<string, set<int> > >                    RozbitkowiePerDruzyna;
 AtomicWrapper<map<string, MyWood> >                       MyWoodPerDruzyna;      // informacje zwracane w odpowiedzi na komende MY_WOOD, przydatne rowniez przy obliczaniu rankingu, zwiazane z dana druzyna
 
 AtomicWrapper<vector<Zuczek> >                            Zuczki;                // zbior zuczkow, indeks zuczka w tym wektorze to jego identyfikator
+
+/////
+
+void zerujMapeFn(vector<vector<Pole> > &, void *);
+void losujWyspyFn(map<pair<int, int>, Wyspa> &, void *);
+void generujTop5Fn(map<pair<int, int>, Wyspa> &, void *);
+void getListWoodResult(map<pair<int, int>, Wyspa> &, void *);
 
 /////
 
@@ -681,8 +704,49 @@ NYI //TODO
     }
     else if("LIST_WOOD" == komenda[0]){
       
-NYI //TODO
-      
+      if(komenda.size() < 2) sendError(handlerSocketu, 3);
+      else if(komenda.size() > 2) sendError(handlerSocketu, 4);
+      else{
+        
+        int kodBledu;
+        
+        char * endptr;
+        int ID = strtol(komenda[1].c_str(), &endptr, 0);
+        if(*endptr)
+          sendError(handlerSocketu, 3);
+        else if(kodBledu = sprawdzZuczka(ID, nazwaDruzyny))
+          sendError(handlerSocketu, kodBledu);
+        else{
+          
+          Zuczek zuczekDummy = Zuczki->at(ID);
+          
+          if(Mapa->at(zuczekDummy.getZuczekCoords().first).at(zuczekDummy.getZuczekCoords().second).getWyspa() == false)
+            sendError(handlerSocketu, 104);
+          else{
+            
+            sendString(handlerSocketu, "OK");
+            
+            ListWoodResult listWoodResult(zuczekDummy.getZuczekCoords());
+            Wyspy.runFunction(getListWoodResult, (void*)&listWoodResult);
+            
+            sendString(handlerSocketu,
+                       NumberToString(listWoodResult.wspolrzedneIDaneWysp.size())
+                      );
+            
+            for(int i=0; i<listWoodResult.wspolrzedneIDaneWysp.size(); ++i){
+              
+              sendString(handlerSocketu,
+                         NumberToString(listWoodResult.wspolrzedneIDaneWysp[i].first.first+1)      + " " +
+                         NumberToString(listWoodResult.wspolrzedneIDaneWysp[i].first.second+1)     + " " +
+                         NumberToString(listWoodResult.wspolrzedneIDaneWysp[i].second.getSticks()) + " " +
+                         NumberToString(listWoodResult.wspolrzedneIDaneWysp[i].second.getTeamsSticks(nazwaDruzyny))
+                        );
+              
+            }
+            
+          }
+        }
+      }
     }
     else if("INFO" == komenda[0]){
       
@@ -836,12 +900,6 @@ void * watekAkceptora(void*){
   }
   
 } // koniec watku akceptora
-
-/////
-
-void zerujMapeFn(vector<vector<Pole> > &, void *);
-void losujWyspyFn(map<pair<int, int>, Wyspa> &, void *);
-void generujTop5Fn(map<pair<int, int>, Wyspa> &, void *);
 
 /////
 
@@ -1160,6 +1218,23 @@ void generujTop5Fn(map<pair<int, int>, Wyspa> & unwrapped_Wyspy, void *){
   
 }
 
+void getListWoodResult(map<pair<int, int>, Wyspa> & unwrapped_Wyspy, void * _listWoodResult){
+  
+  ListWoodResult * listWoodResult = (ListWoodResult *) _listWoodResult;
+  
+  for(map<pair<int, int>, Wyspa>::iterator it = unwrapped_Wyspy.begin();
+      unwrapped_Wyspy.end() != it;
+      ++it){
+    
+    if(abs(it->first.first  - listWoodResult->zuczekCoords.first ) <= 8
+    || abs(it->first.second - listWoodResult->zuczekCoords.second) <= 8
+    ){
+      listWoodResult->wspolrzedneIDaneWysp.push_back(*it);
+    }
+    
+  }
+  
+}
 
 
 
