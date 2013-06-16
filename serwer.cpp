@@ -886,7 +886,8 @@ void * watekPerKlient(void* _arg){
         string msg = "";
         
         for(set<int>::iterator it = rpdDummy.begin(); rpdDummy.end() != it; ++it)
-          msg += NumberToString(*it) + " ";
+          if(Zuczki->at(*it).getUtopiony() == false)
+            msg += NumberToString(*it) + " ";
         
         msg.erase(msg.size()-1);
         
