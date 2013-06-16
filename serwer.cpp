@@ -404,7 +404,7 @@ public:
     
   }
   
-  void setCarriedSticks (int _carriedSticks){ carriedSticks = _carriedSticks; }
+//   void setCarriedSticks (int _carriedSticks){ carriedSticks = _carriedSticks; }
   void setBusyCounter   (int _BusyCounter)  { BusyCounter = _BusyCounter;     }
   void setRole          (RoleEnum _Role)    { Role = _Role;                   }
   
@@ -452,6 +452,12 @@ public:
     
   }
   
+  int giveAllCarriedSticks(){
+    int ret = carriedSticks;
+    carriedSticks = 0;
+    return ret;
+  }
+  
 };
 
 class Wyspa{
@@ -477,7 +483,10 @@ public:
   }
   
   void leaveSticks(int howMany, string nazwaDruzyny){
-NYI //TODO
+    
+    Sticks += howMany;
+    teamSticks[nazwaDruzyny] += howMany;
+    
   }
   
   void enqueueTaker(int ID){ takersQueue.push_back(ID); }
@@ -982,7 +991,37 @@ NYI //TODO
     }
     else if("GIVE" == komenda[0]){
       
-NYI //TODO
+      if(komenda.size() < 2) sendError(handlerSocketu, 3);
+      else if(komenda.size() > 2) sendError(handlerSocketu, 4);
+      else{
+        
+        int kodBledu;
+        
+        char * endptr;
+        int ID = strtol(komenda[1].c_str(), &endptr, 0);
+        if(*endptr)
+          sendError(handlerSocketu, 3);
+        else if(kodBledu = sprawdzZuczka(ID, nazwaDruzyny))
+          sendError(handlerSocketu, kodBledu);
+        else{
+          
+          Zuczek zuczekDummy = Zuczki->at(ID);
+          
+          if(Mapa->at(zuczekDummy.getZuczekCoords().first).at(zuczekDummy.getZuczekCoords().second).getWyspa() == false)
+            sendError(handlerSocketu, 104);
+          else{
+            
+            sendString(handlerSocketu, "OK");
+            
+            int iloscOddawanychPatykow = Zuczki->at(ID).giveAllCarriedSticks();
+            
+            Wyspy->find(zuczekDummy.getZuczekCoords())->second.leaveSticks(iloscOddawanychPatykow, nazwaDruzyny);
+            
+            // TODO znakowanie patykow
+            
+          }
+        }
+      }
       
     }
     else if("GUARD" == komenda[0]){
