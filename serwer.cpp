@@ -257,6 +257,8 @@ void sendError(FILE * handler, int kodBledu, bool newline = true){
       return;
   }
   
+  cout << "Wysylam blad: \"" << msg << '"' << endl;
+  
   sendString(handler, msg, newline);
 }
 
@@ -353,6 +355,15 @@ class Zuczek{
   int BusyCounter; // liczba tur, przez ktore zukoskoczek bedzie niedostepny wykonujac wczesniejsze rozkazy lub UNKNOWN dla straznikow
   RoleEnum Role;
   bool utopiony;
+  pair<int, int> enqueuedMovementRelativeCoords;
+  
+  void move(int dX, int dY){
+    if( (1 != abs(dX) || 0 != abs(dY))
+     && (0 != abs(dX) || 1 != abs(dY)) ) {SYS_ERROR("Proba przesuniecia zuczka o inna liczbe pol niz 1."); exit(EXIT_CODE_COUNTER);}
+    
+    zuczekCoords.first  += dX;
+    zuczekCoords.second += dY;
+  }
   
 public:
   
@@ -364,7 +375,8 @@ public:
     carriedSticks(_carriedSticks),
     BusyCounter(_BusyCounter),
     Role(_Role),
-    utopiony(_utopiony){}
+    utopiony(_utopiony),
+    enqueuedMovementRelativeCoords(make_pair(0,0)){}
   
   pair<int, int> getZuczekCoords() { return zuczekCoords;  }
   string         getNazwaDruzyny() { return nazwaDruzyny;  }
@@ -396,16 +408,6 @@ public:
   void setBusyCounter   (int _BusyCounter)  { BusyCounter = _BusyCounter;     }
   void setRole          (RoleEnum _Role)    { Role = _Role;                   }
   
-  void move(int dX, int dY){
-    if(1 != abs(dX) &&
-       1 != abs(dY) &&
-       1 != abs(dX+dY)
-    ) {SYS_ERROR("Proba przesuniecia zuczka o inna liczbe pol niz 1."); exit(EXIT_CODE_COUNTER);}
-    
-    zuczekCoords.first  += dX;
-    zuczekCoords.second += dY;
-  }
-  
   void decrementBusyCounterIfBusy(){
     if(BusyCounter > 0)
       --BusyCounter;
@@ -427,6 +429,27 @@ public:
     if(getCapacity() - numberOfSticks < 0) {SYS_ERROR("Proba dodania patykow do pelnego zuczka."); exit(EXIT_CODE_COUNTER);}
     
     carriedSticks += numberOfSticks;
+  }
+  
+  bool makeBusy(int val){
+    if(0 != BusyCounter) return false;
+    
+    BusyCounter = val;
+    
+    return true;
+  }
+  
+  void enqueueMovement(pair<int, int> relativeCoords){
+    enqueuedMovementRelativeCoords = relativeCoords;
+  }
+  
+  void makeMovement(){
+    
+    if(make_pair(0,0) != enqueuedMovementRelativeCoords){
+      move(enqueuedMovementRelativeCoords.first, enqueuedMovementRelativeCoords.second);
+      enqueuedMovementRelativeCoords = make_pair(0,0);
+    }
+    
   }
   
 };
@@ -762,6 +785,20 @@ int sprawdzZuczka(int ID, string nazwaDruzyny){ // funkcja zwraca 0 jesli zuczek
   return 0;
 }
 
+bool czyWspolrzedneSaPozaPlansza(const pair<int, int> & coords){
+  
+  if(coords.first < 0 || coords.second < 0)
+    return true;
+  
+  int dummy_N = ParametryRozgrywki->getN();
+  
+  if(coords.first >= dummy_N || coords.second >= dummy_N)
+    return true;
+  
+  return false;
+  
+}
+
 /////
 
 void * watekPerKlient(void* _arg){
@@ -863,7 +900,51 @@ NYI //TODO
     }
     else if("MOVE" == komenda[0]){
       
-NYI //TODO
+      if(komenda.size() < 4) sendError(handlerSocketu, 3);
+      else if(komenda.size() > 4) sendError(handlerSocketu, 4);
+      else{
+        
+        int kodBledu;
+        
+        char * endptr;
+        int ID = strtol(komenda[1].c_str(), &endptr, 0);
+        if(*endptr)
+          sendError(handlerSocketu, 3);
+        else if(kodBledu = sprawdzZuczka(ID, nazwaDruzyny))
+          sendError(handlerSocketu, kodBledu);
+        else{
+          
+          int dX = strtol(komenda[2].c_str(), &endptr, 0);
+          if(*endptr)
+            sendError(handlerSocketu, 3);
+          else{
+          
+            int dY = strtol(komenda[3].c_str(), &endptr, 0);
+            
+            if(*endptr)
+              sendError(handlerSocketu, 3);
+            else if( (1 != abs(dX) || 0 != abs(dY))
+                  && (0 != abs(dX) || 1 != abs(dY)) )
+              sendError(handlerSocketu, 102);
+            else{
+              
+              Zuczek zuczekDummy = Zuczki->at(ID);
+              
+              if(czyWspolrzedneSaPozaPlansza(zuczekDummy.getZuczekCoords() + make_pair(dX, dY)))
+                sendError(handlerSocketu, 103);
+              else if(!zuczekDummy.makeBusy(1))
+                sendError(handlerSocketu, 111);
+              else{
+                
+                sendString(handlerSocketu, "OK");
+                
+                Zuczki->at(ID).enqueueMovement(make_pair(dX, dY));
+                
+              }
+            }
+          }
+        }
+      }
       
     }
     else if("TAKE" == komenda[0]){
@@ -886,14 +967,13 @@ NYI //TODO
           
           if(Mapa->at(zuczekDummy.getZuczekCoords().first).at(zuczekDummy.getZuczekCoords().second).getWyspa() == false)
             sendError(handlerSocketu, 104);
-          else if(zuczekDummy.getBusyCounter() != 0)
+          else if(!Zuczki->at(ID).makeBusy(1))
             sendError(handlerSocketu, 111);
           else{
             
             sendString(handlerSocketu, "OK");
             
             Wyspy->find(zuczekDummy.getZuczekCoords())->second.enqueueTaker(ID);
-            Zuczki->at(ID).setBusyCounter(1);
             
           }
         }
@@ -1275,7 +1355,7 @@ int main(int argc, char ** argv){
     ParametryRozgrywki ->setK(pow(Pod, time(NULL)-CzasStartuGry));
     PoczatkoweB        ->set(dummy_PoczatkoweB);
     L                  ->set(maksymalnaIloscTurNaRunde);
-//     Tstart             ->set(czasRzeczywisty());
+    Tstart             ->set(czasRzeczywisty());
     FireStatus         ->set(false);
     
     Mapa.runFunction(zerujMapeFn);
@@ -1356,6 +1436,8 @@ int main(int argc, char ** argv){
       Wyspy.runFunction(zbieraniePatykowFn); // ta funkcja musi byc wywolana przed dekrementacja BusyCounterow
       
       for(int i=0; i<dummy_ZuczkiSize; ++i){
+        Zuczki->at(i).makeMovement();
+        
         Zuczki->at(i).decrementBusyCounterIfBusy();
         
         pair<int, int> zuczekCoords = Zuczki->at(i).getZuczekCoords();
