@@ -4,6 +4,7 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <signal.h>
+#include <sys/time.h>
 
 #include <cstdio>
 #include <cstdlib>
@@ -40,6 +41,14 @@ void mySleep(double czas){
   req.tv_sec = (time_t)floor(czas); /* seconds */
   req.tv_nsec = (long)( ( czas - floor(czas) ) * 1e9 ); /* nanoseconds */
   nanosleep(&req, NULL);
+}
+
+double czasRzeczywisty(){
+  struct timeval tval;
+
+  if(gettimeofday(&tval, NULL)){SYS_ERROR("gettimeofday error"); exit(EXIT_CODE_COUNTER);}
+
+  return tval.tv_sec + 1e-6*tval.tv_usec;
 }
 
 /////
@@ -650,10 +659,6 @@ public:
     *this = values;
   }
   
-//   DescribeWorld getCopy(){
-//     return *this;
-//   }
-  
   void setN   (int    _N)   { N    = _N;    }
   void setI   (int    _I)   { I    = _I;    }
   void setSmin(int    _Smin){ Smin = _Smin; }
@@ -714,7 +719,7 @@ AtomicWrapper<DescribeWorld>                              ParametryRozgrywki;   
 AtomicWrapper<GetSetWrapper<int> >                        PoczatkoweB,           // ilosc zukoskoczkow na poczatku rundy
                                                           L;                     // liczba tur do konca rundy
 
-AtomicWrapper<GetSetWrapper<time_t> >                     Tstart;                // czas, kiedy zaczela sie tura
+AtomicWrapper<GetSetWrapper<double> >                     Tstart;                // czas, kiedy zaczela sie tura
 
 AtomicWrapper<GetSetWrapper<bool> >                       FireStatus;            // czy plonie ognisko
 
@@ -1064,7 +1069,21 @@ NYI //TODO
     }
     else if("WAIT" == komenda[0]){
       
-NYI //TODO
+      if(komenda.size() < 1) sendError(handlerSocketu, 3);
+      else if(komenda.size() > 1) sendError(handlerSocketu, 4);
+      else{
+        sendString(handlerSocketu, "OK");
+        
+        double czasOczekiwania = Tstart->get() + ParametryRozgrywki->getT() - czasRzeczywisty();
+        
+        sendString(handlerSocketu,
+                   "WAITING " + NumberToString(czasOczekiwania)
+                  );
+        
+        mySleep(czasOczekiwania);
+        
+        sendString(handlerSocketu, "OK");
+      }
       
     }
     else
@@ -1133,7 +1152,7 @@ int main(int argc, char ** argv){
   int numerPortu = strtol(argv[1], &endptr, 0);
   if(*endptr || 1024 > numerPortu || numerPortu > 65535){SYS_ERROR("Numer portu musi byc liczba calkowita z przedzialu [1024;65535]."); return EXIT_CODE_COUNTER;}
   
-  const time_t CzasStartuGry = time(NULL);
+  const double CzasStartuGry = czasRzeczywisty();
   
   /////
   
@@ -1217,7 +1236,7 @@ int main(int argc, char ** argv){
   DescribeWorld                             nonatomic_ParametryRozgrywki(dlugoscBokuPlanszy, liczbaWysp, minimalnyRozmiarOgniska, mnoznikPunktowZaPatykiWOgnisku, czasTrwaniaTury, 1.);
   GetSetWrapper<int>                        nonatomic_PoczatkoweB;
   GetSetWrapper<int>                        nonatomic_L;
-  GetSetWrapper<time_t>                     nonatomic_Tstart;
+  GetSetWrapper<double>                     nonatomic_Tstart;
   GetSetWrapper<bool>                       nonatomic_FireStatus;
   vector<vector<Pole> >                     nonatomic_Mapa;
   map<pair<int, int>, Wyspa>                nonatomic_Wyspy;
@@ -1256,7 +1275,7 @@ int main(int argc, char ** argv){
     ParametryRozgrywki ->setK(pow(Pod, time(NULL)-CzasStartuGry));
     PoczatkoweB        ->set(dummy_PoczatkoweB);
     L                  ->set(maksymalnaIloscTurNaRunde);
-    Tstart             ->set(time(NULL));
+//     Tstart             ->set(czasRzeczywisty());
     FireStatus         ->set(false);
     
     Mapa.runFunction(zerujMapeFn);
@@ -1329,7 +1348,7 @@ int main(int argc, char ** argv){
     
     for(;L->get();
         L->set((*L).get()-1), // kopiujemy L, odejmujemy 1 od kopii i przypisujemy
-        Tstart->set(time(NULL))
+        Tstart->set(czasRzeczywisty())
        ){ // petla po turach
       
       int dummy_ZuczkiSize = Zuczki->size();
@@ -1347,7 +1366,7 @@ int main(int argc, char ** argv){
     
       Wyspy.runFunction(generujTop5Fn);
       
-      time_t T_dummy = ParametryRozgrywki->getT();
+      int T_dummy = ParametryRozgrywki->getT();
       mySleep(T_dummy - 0.1);
       
       cout << "Nowa tura." << endl;
