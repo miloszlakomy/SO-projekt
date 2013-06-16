@@ -877,19 +877,22 @@ void * watekPerKlient(void* _arg){
       else{
         sendString(handlerSocketu, "OK");
         
-        sendString(handlerSocketu,
-                   NumberToString(BPerDruzyna->find(nazwaDruzyny)->second)
-                  );
-        
         set<int> rpdDummy = RozbitkowiePerDruzyna->find(nazwaDruzyny)->second;
         
         string msg = "";
+        int rozbitkowieCount = 0;
         
         for(set<int>::iterator it = rpdDummy.begin(); rpdDummy.end() != it; ++it)
-          if(Zuczki->at(*it).getUtopiony() == false)
+          if(Zuczki->at(*it).getUtopiony() == false){
             msg += NumberToString(*it) + " ";
+            ++rozbitkowieCount;
+          }
         
         msg.erase(msg.size()-1);
+        
+        sendString(handlerSocketu,
+                   NumberToString(rozbitkowieCount)
+                  );
         
         sendString(handlerSocketu,
                    msg
