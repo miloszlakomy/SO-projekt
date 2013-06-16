@@ -1,54 +1,6 @@
 #ifndef ATOMICWRAPPER_FUNCTIONS_HPP
 #define ATOMICWRAPPER_FUNCTIONS_HPP
 
-void zerujMapeFn(vector<vector<Pole> > & unwrapped_Mapa, void *){
-  
-  int dummy_N    = ParametryRozgrywki->getN();
-  
-  unwrapped_Mapa = vector<vector<Pole> >(
-                                          dummy_N,
-                                          vector<Pole>(dummy_N)
-                                        );
-  
-}
-
-bool czyMoznaPostawicWyspe(const map<pair<int, int>, Wyspa> & unwrapped_Wyspy, const pair<int, int> & newIslandsCoords){
-  
-  const static pair<int, int> Sasiedzi[] = {
-    make_pair( 0, 0),
-    make_pair( 1, 0),
-    make_pair( 0, 1),
-    make_pair(-1, 0),
-    make_pair( 0,-1)
-  };
-  
-  for(int i=0;i<sizeof(Sasiedzi)/sizeof(pair<int, int>);++i)
-    if(unwrapped_Wyspy.end() != unwrapped_Wyspy.find(newIslandsCoords+Sasiedzi[i]) ) return false;
-  
-  return true;
-}
-
-void losujWyspyFn(map<pair<int, int>, Wyspa> & unwrapped_Wyspy, void *){
-  
-  unwrapped_Wyspy.clear();
-  WyspyKeys->clear();
-  
-  int dummy_I    = ParametryRozgrywki->getI(),
-      dummy_N    = ParametryRozgrywki->getN(),
-      dummy_Smin = ParametryRozgrywki->getSmin();
-  
-  for(int i=0;i<dummy_I;++i){
-    pair<int, int> newIslandsCoords;
-    do newIslandsCoords = make_pair(rand()%dummy_N, rand()%dummy_N); while(!czyMoznaPostawicWyspe(unwrapped_Wyspy, newIslandsCoords));
-    
-    int iloscPatykowNaNowejWyspie = rand()%20 + (dummy_Smin+dummy_I-1)/dummy_I;
-    unwrapped_Wyspy.insert(make_pair(newIslandsCoords, Wyspa(newIslandsCoords, iloscPatykowNaNowejWyspie)));
-    Mapa->at(newIslandsCoords.first).at(newIslandsCoords.second).setWyspa(true);
-    WyspyKeys->push_back(newIslandsCoords);
-  }
-  
-}
-
 void generujTop5Fn(map<pair<int, int>, Wyspa> & unwrapped_Wyspy, void *){
   
   set<Top5_Element, greater<Top5_Element> > dummy_Top5;

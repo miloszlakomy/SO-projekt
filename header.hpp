@@ -46,6 +46,8 @@ const string bialeZnaki = " \t\r";
 
 const int WIELKOSC_BACKLOGU = 100;
 
+const double Pod = 1.00002406790006336880498073623209268063; // podstawa funkcji wykladniczej wspolczynnika skalujacego wynik od czasu
+
 int deskryptorSocketuAkceptora = -1;
 vector<pair<FILE *, string> > handlerySocketowINazwyZespolowPerKlient;
 

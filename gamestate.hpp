@@ -2,9 +2,6 @@
 #define GAMESTATE_HPP
 
 
-
-void zerujMapeFn(vector<vector<Pole> > &, void *);
-void losujWyspyFn(map<pair<int, int>, Wyspa> &, void *);
 void generujTop5Fn(map<pair<int, int>, Wyspa> &, void *);
 void getListWoodResultFn(map<pair<int, int>, Wyspa> &, void *);
 void zbieraniePatykowFn(map<pair<int, int>, Wyspa> &, void *);

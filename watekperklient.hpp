@@ -159,6 +159,11 @@ NYI //TODO
             Wyspy->find(zuczekDummy.getZuczekCoords())->second.ignition(MyWoodPerDruzyna, ParametryRozgrywki);
             FireStatus->set(true);
             
+            int dummy_L = L->get();
+            
+            if(dummy_L > 15)
+              L->set(15);
+            
           }
         }
       }
