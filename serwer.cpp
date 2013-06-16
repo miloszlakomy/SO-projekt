@@ -349,6 +349,29 @@ public:
   
 };
 
+class MyWood{
+  
+  int T; // suma punktow przyznana druzynie za patyki lezace na wyspach (bez uwzgledniania wspolczynnika K)
+  int S; // liczba patykow oznakowanych przez druzyne i lezacych na wyspach
+  int C; // suma liczby patykow transportowanych przez druzyne (samodzielnie przez rozbitkow i na tratwach)
+  
+public:
+  
+  MyWood(int _T = 0, int _S = 0, int _C = 0):
+    T(_T),
+    S(_S),
+    C(_C){}
+  
+  int getT(){ return T; }
+  int getS(){ return S; }
+  int getC(){ return C; }
+  
+  void addToT(int val){ T += val; }
+  void addToS(int val){ S += val; }
+  void addToC(int val){ C += val; }
+  
+};
+
 class Zuczek{
   
   enum RoleEnum{
@@ -433,10 +456,11 @@ public:
     return 5-carriedSticks;
   }
   
-  void addSticks(int numberOfSticks){
+  void addSticks(int numberOfSticks, AtomicWrapper<map<string, MyWood> > & MyWoodPerDruzyna){
     
     if(getCapacity() - numberOfSticks < 0) {SYS_ERROR("Proba dodania patykow do pelnego zuczka."); exit(EXIT_CODE_COUNTER);}
     
+    MyWoodPerDruzyna->find(nazwaDruzyny)->second.addToC(numberOfSticks);
     carriedSticks += numberOfSticks;
   }
   
@@ -461,11 +485,49 @@ public:
     
   }
   
-  int giveAllCarriedSticks(){
+  int giveAllCarriedSticks(AtomicWrapper<map<string, MyWood> > & MyWoodPerDruzyna){
+    
+    MyWoodPerDruzyna->find(nazwaDruzyny)->second.addToC( - carriedSticks );
+    
     int ret = carriedSticks;
     carriedSticks = 0;
     return ret;
   }
+  
+};
+
+class DescribeWorld{
+  
+  int N,    // dlugosc boku planszy
+      I,    // liczba wysp na planszy
+      Smin, // minimalny rozmiar ogniska
+      F,    // mnoznik punktow za patyki w ognisku
+      T;    // czas trwania pojedynczej tury w sekundach
+
+  double K; // wspolczynnik skalujacy wynik
+  
+public:
+  
+  DescribeWorld(int _N, int _I, int _Smin, int _F, int _T, double _K):
+    N(_N), I(_I), Smin(_Smin), F(_F), T(_T), K(_K){}
+  
+  void set(const DescribeWorld & values){
+    *this = values;
+  }
+  
+  void setN   (int    _N)   { N    = _N;    }
+  void setI   (int    _I)   { I    = _I;    }
+  void setSmin(int    _Smin){ Smin = _Smin; }
+  void setF   (int    _F)   { F    = _F;    }
+  void setT   (int    _T)   { T    = _T;    }
+  void setK   (double _K)   { K    = _K;    }
+  
+  int    getN   (){ return N;    }
+  int    getI   (){ return I;    }
+  int    getSmin(){ return Smin; }
+  int    getF   (){ return F;    }
+  int    getT   (){ return T;    }
+  double getK   (){ return K;    }
   
 };
 
@@ -474,14 +536,29 @@ class Wyspa{
   pair<int, int>   coords;
   int              Sticks;        // sumaryczna liczba patykow na wyspie
   map<string, int> teamSticks;    // zbior liczb patykow przypisanych danej druzynie, uszeregowanych wedlug nazw druzyn
-  list<int>       takersQueue;   // kolejka identyfikatorow zuczkow ktore chca zabrac patyki pod koniec tury
-  list<int>       buildersQueue; // kolejka identyfikatorow zuczkow ktore chca zabrac patyki pod koniec tury pod budowe tratwy
+  list<int>        takersQueue;   // kolejka identyfikatorow zuczkow ktore chca zabrac patyki pod koniec tury
+  list<int>        buildersQueue; // kolejka identyfikatorow zuczkow ktore chca zabrac patyki pod koniec tury pod budowe tratwy
+  bool             burning;
   
 public:
   
   Wyspa(const pair<int, int> & _coords, int _Sticks):
     coords(_coords),
-    Sticks(_Sticks){}
+    Sticks(_Sticks),
+    burning(false){}
+  
+  void ignition(AtomicWrapper<map<string, MyWood> > & MyWoodPerDruzyna,
+                AtomicWrapper<DescribeWorld> & ParametryRozgrywki){
+    burning = true;
+    takersQueue.clear();
+    buildersQueue.clear();
+    
+    for(map<string, int>::iterator it = teamSticks.begin();
+            teamSticks.end() != it;
+            ++it){
+          MyWoodPerDruzyna->find(it->first)->second.addToT( it->second * (ParametryRozgrywki->getF() - 1) );
+        }
+  }
   
   int getSticks(){ return Sticks; }
   
@@ -491,17 +568,25 @@ public:
     return it->second;
   }
   
-  void leaveSticks(int howMany, string nazwaDruzyny){
+  void leaveSticks(int howMany, string nazwaDruzyny,
+                   AtomicWrapper<map<string, MyWood> > & MyWoodPerDruzyna,
+                   AtomicWrapper<DescribeWorld> & ParametryRozgrywki){
     
     Sticks += howMany;
     teamSticks[nazwaDruzyny] += howMany;
+    MyWoodPerDruzyna->find(nazwaDruzyny)->second.addToS(howMany);
+    if(burning)
+      MyWoodPerDruzyna->find(nazwaDruzyny)->second.addToT(howMany * ParametryRozgrywki->getF());
+    else
+      MyWoodPerDruzyna->find(nazwaDruzyny)->second.addToT(howMany);
     
   }
   
   void enqueueTaker(int ID){ takersQueue.push_back(ID); }
   
   void letTakersTake(AtomicWrapper<vector<vector<Pole> > > & Mapa,
-                     AtomicWrapper<vector<Zuczek> > & Zuczki){ // Ta funkcja jest thread-safe, dopoki zuczki do ktorych sie odwoluje maja ustawiony niezerowy BusyCounter
+                     AtomicWrapper<vector<Zuczek> > & Zuczki,
+                     AtomicWrapper<map<string, MyWood> > & MyWoodPerDruzyna){ // Ta funkcja jest thread-safe, dopoki zuczki do ktorych sie odwoluje maja ustawiony niezerowy BusyCounter
     
     if(Mapa->at(coords.first).at(coords.second).getG() >= takersQueue.size()+buildersQueue.size()){ // wycisk
       
@@ -520,6 +605,13 @@ public:
       
       if(zapotrzebowanie >= Sticks){
         
+        for(map<string, int>::iterator it = teamSticks.begin();
+            teamSticks.end() != it;
+            ++it){
+          MyWoodPerDruzyna->find(it->first)->second.addToS( - it->second );
+          MyWoodPerDruzyna->find(it->first)->second.addToT( - it->second );
+        }
+        
         teamSticks.clear();
         
         // TODO przyznawanie patykow w pierwszej kolejnosci budowniczym
@@ -529,7 +621,7 @@ public:
         for(list<int>::iterator it = takersQueue.begin(); takersQueue.end() != it; ++it){
           int iloscWzietychPatykow = Zuczki->at(*it).getCapacity() * wspolczynnikZaspokojeniaZapotrzebowania;
           Sticks -= iloscWzietychPatykow;
-          Zuczki->at(*it).addSticks(iloscWzietychPatykow);
+          Zuczki->at(*it).addSticks(iloscWzietychPatykow, MyWoodPerDruzyna);
         }
         
         while(takersQueue.size() && Sticks > 0){
@@ -541,7 +633,7 @@ public:
           
           if(zapotrzebowanieZbieracza > 0){
             --Sticks;
-            Zuczki->at(IDzbieracza).addSticks(1);
+            Zuczki->at(IDzbieracza).addSticks(1, MyWoodPerDruzyna);
           }
           
         }
@@ -582,7 +674,7 @@ public:
           
           int zapotrzebowanieZbieracza = Zuczki->at(IDzbieracza).getCapacity();
           
-          Zuczki->at(IDzbieracza).addSticks(zapotrzebowanieZbieracza);
+          Zuczki->at(IDzbieracza).addSticks(zapotrzebowanieZbieracza, MyWoodPerDruzyna);
           
         }
         
@@ -605,6 +697,8 @@ public:
             ++it)
               if(druzynyZbieraczy.end() == druzynyZbieraczy.find(it->first)){
                 zapotrzebowanie -= it->second * wspolczynnikUdzialuInnychDruzyn;
+                MyWoodPerDruzyna->find(it->first)->second.addToS( - it->second * wspolczynnikUdzialuInnychDruzyn );
+                MyWoodPerDruzyna->find(it->first)->second.addToT( - it->second * wspolczynnikUdzialuInnychDruzyn );
                 it->second -= it->second * wspolczynnikUdzialuInnychDruzyn;
               }
             
@@ -614,6 +708,8 @@ public:
               if(druzynyZbieraczy.end() == druzynyZbieraczy.find(it->first) && it->second > 0){
                 --zapotrzebowanie;
                 --it->second;
+                MyWoodPerDruzyna->find(it->first)->second.addToS( -1 );
+                MyWoodPerDruzyna->find(it->first)->second.addToT( -1 );
               }
           }
           else{
@@ -623,8 +719,11 @@ public:
             for(map<string, int>::iterator it = teamSticks.begin();
             teamSticks.end() != it;
             ++it)
-              if(druzynyZbieraczy.end() == druzynyZbieraczy.find(it->first))
+              if(druzynyZbieraczy.end() == druzynyZbieraczy.find(it->first)){
+                MyWoodPerDruzyna->find(it->first)->second.addToS( - it->second );
+                MyWoodPerDruzyna->find(it->first)->second.addToT( - it->second );
                 it->second = 0;
+              }
             
             
             double wspolczynnikUdzialuDruzyn = double(zapotrzebowanie)/liczbaPatykowDruzynZbieraczy;
@@ -636,6 +735,8 @@ public:
             ++it)
               if(druzynyZbieraczy.end() != druzynyZbieraczy.find(it->first)){
                 zapotrzebowanie -= it->second * wspolczynnikUdzialuDruzyn;
+                MyWoodPerDruzyna->find(it->first)->second.addToS( - it->second * wspolczynnikUdzialuDruzyn );
+                MyWoodPerDruzyna->find(it->first)->second.addToT( - it->second * wspolczynnikUdzialuDruzyn );
                 it->second -= it->second * wspolczynnikUdzialuDruzyn;
               }
             
@@ -645,6 +746,8 @@ public:
               if(druzynyZbieraczy.end() != druzynyZbieraczy.find(it->first) && it->second > 0){
                 --zapotrzebowanie;
                 --it->second;
+                MyWoodPerDruzyna->find(it->first)->second.addToS( -1 );
+                MyWoodPerDruzyna->find(it->first)->second.addToT( -1 );
               }
             
           }
@@ -655,64 +758,6 @@ public:
     }
     
   }
-  
-};
-
-class MyWood{
-  
-  int T; // suma punktow przyznana druzynie za patyki lezace na wyspach (bez uwzgledniania wspolczynnika K)
-  int S; // liczba patykow oznakowanych przez druzyne i lezacych na wyspach
-  int C; // suma liczby patykow transportowanych przez druzyne (samodzielnie przez rozbitkow i na tratwach)
-  
-public:
-  
-  MyWood(int _T = 0, int _S = 0, int _C = 0):
-    T(_T),
-    S(_S),
-    C(_C){}
-  
-  int getT(){ return T; }
-  int getS(){ return S; }
-  int getC(){ return C; }
-  
-  void addToT(int val){ T += val; }
-  void addToS(int val){ S += val; }
-  void addToC(int val){ C += val; }
-  
-};
-
-class DescribeWorld{
-  
-  int N,    // dlugosc boku planszy
-      I,    // liczba wysp na planszy
-      Smin, // minimalny rozmiar ogniska
-      F,    // mnoznik punktow za patyki w ognisku
-      T;    // czas trwania pojedynczej tury w sekundach
-
-  double K; // wspolczynnik skalujacy wynik
-  
-public:
-  
-  DescribeWorld(int _N, int _I, int _Smin, int _F, int _T, double _K):
-    N(_N), I(_I), Smin(_Smin), F(_F), T(_T), K(_K){}
-  
-  void set(const DescribeWorld & values){
-    *this = values;
-  }
-  
-  void setN   (int    _N)   { N    = _N;    }
-  void setI   (int    _I)   { I    = _I;    }
-  void setSmin(int    _Smin){ Smin = _Smin; }
-  void setF   (int    _F)   { F    = _F;    }
-  void setT   (int    _T)   { T    = _T;    }
-  void setK   (double _K)   { K    = _K;    }
-  
-  int    getN   (){ return N;    }
-  int    getI   (){ return I;    }
-  int    getSmin(){ return Smin; }
-  int    getF   (){ return F;    }
-  int    getT   (){ return T;    }
-  double getK   (){ return K;    }
   
 };
 
@@ -918,7 +963,34 @@ NYI //TODO
     }
     else if("IGNITION" == komenda[0]){
       
-NYI //TODO
+      if(komenda.size() < 2) sendError(handlerSocketu, 3);
+      else if(komenda.size() > 2) sendError(handlerSocketu, 4);
+      else{
+        
+        int kodBledu;
+        
+        char * endptr;
+        int ID = strtol(komenda[1].c_str(), &endptr, 0);
+        if(*endptr)
+          sendError(handlerSocketu, 3);
+        else if(kodBledu = sprawdzZuczka(ID, nazwaDruzyny))
+          sendError(handlerSocketu, kodBledu);
+        else{
+          
+          Zuczek zuczekDummy = Zuczki->at(ID);
+          
+          if(Mapa->at(zuczekDummy.getZuczekCoords().first).at(zuczekDummy.getZuczekCoords().second).getWyspa() == false)
+            sendError(handlerSocketu, 104);
+          else{
+            
+            sendString(handlerSocketu, "OK");
+            
+            Wyspy->find(zuczekDummy.getZuczekCoords())->second.ignition(MyWoodPerDruzyna, ParametryRozgrywki);
+            FireStatus->set(true);
+            
+          }
+        }
+      }
       
     }
     else if("MOVE" == komenda[0]){
@@ -1027,11 +1099,9 @@ NYI //TODO
             
             sendString(handlerSocketu, "OK");
             
-            int iloscOddawanychPatykow = Zuczki->at(ID).giveAllCarriedSticks();
+            int iloscOddawanychPatykow = Zuczki->at(ID).giveAllCarriedSticks(MyWoodPerDruzyna);
             
-            Wyspy->find(zuczekDummy.getZuczekCoords())->second.leaveSticks(iloscOddawanychPatykow, nazwaDruzyny);
-            
-            // TODO znakowanie patykow
+            Wyspy->find(zuczekDummy.getZuczekCoords())->second.leaveSticks(iloscOddawanychPatykow, nazwaDruzyny, MyWoodPerDruzyna, ParametryRozgrywki);
             
           }
         }
@@ -1594,7 +1664,7 @@ void zbieraniePatykowFn(map<pair<int, int>, Wyspa> & unwrapped_Wyspy, void *){
   for(map<pair<int, int>, Wyspa>::iterator it = unwrapped_Wyspy.begin();
       unwrapped_Wyspy.end() != it;
       ++it)
-    it->second.letTakersTake(Mapa, Zuczki);
+    it->second.letTakersTake(Mapa, Zuczki, MyWoodPerDruzyna);
   
 }
 
@@ -1623,11 +1693,12 @@ void displayWorldFn(vector<vector<Pole> > & unwrapped_Mapa, void *){
         buffer[y][x] = '#';
   
   int dummy_ZuczkiSize = Zuczki->size();
-  for(int i=0;i<dummy_ZuczkiSize;++i){
-    pair<int, int> coords = Zuczki->at(i).getZuczekCoords();
-//     buffer[coords.second][coords.first] = NumberToString(Zuczki->at(i).getCarriedSticks()%10)[0];
-    buffer[coords.second][coords.first] = hashStringToLetter(Zuczki->at(i).getNazwaDruzyny());
-  }
+  for(int i=0;i<dummy_ZuczkiSize;++i)
+    if(Zuczki->at(i).getUtopiony() == false){
+      pair<int, int> coords = Zuczki->at(i).getZuczekCoords();
+  //     buffer[coords.second][coords.first] = NumberToString(Zuczki->at(i).getCarriedSticks()%10)[0];
+      buffer[coords.second][coords.first] = hashStringToLetter(Zuczki->at(i).getNazwaDruzyny());
+    }
   
   for(int i=0;i<buffer.size();++i)
     cout << buffer[i] << endl;
