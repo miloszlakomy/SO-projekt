@@ -257,7 +257,8 @@ void sendError(FILE * handler, int kodBledu, bool newline = true){
       return;
   }
   
-  cout << "Wysylam blad: \"" << msg << '"' << endl;
+  if(104 != kodBledu) //TODO usunac ta linie
+    cout << "Wysylam blad: \"" << msg << '"' << endl;
   
   sendString(handler, msg, newline);
 }
@@ -284,6 +285,14 @@ vector<string> myExplode(string const & explosives, string const & delimeters = 
   }
   
   return ret;
+}
+
+char hashStringToLetter(const string & str){
+  char ret = str[0];
+  for(int i=1;i<str.size();++i)
+    ret ^= str[i];
+  
+  return ret%26 + 'a';
 }
 
 /////
@@ -587,7 +596,7 @@ public:
           liczbaNiczyichPatykow = 0;
           
           if(liczbaPatykowInnychDruzyn >= zapotrzebowanie){
-            double wspolczynnikUdzialuInnychDruzyn = double(liczbaPatykowInnychDruzyn)/zapotrzebowanie;
+            double wspolczynnikUdzialuInnychDruzyn = double(zapotrzebowanie)/liczbaPatykowInnychDruzyn;
             
             liczbaPatykowInnychDruzyn -= zapotrzebowanie;
             
@@ -618,7 +627,7 @@ public:
                 it->second = 0;
             
             
-            double wspolczynnikUdzialuDruzyn = double(liczbaPatykowDruzynZbieraczy)/zapotrzebowanie;
+            double wspolczynnikUdzialuDruzyn = double(zapotrzebowanie)/liczbaPatykowDruzynZbieraczy;
             
             liczbaPatykowDruzynZbieraczy -= zapotrzebowanie;
             
@@ -774,6 +783,7 @@ void losujWyspyFn(map<pair<int, int>, Wyspa> &, void *);
 void generujTop5Fn(map<pair<int, int>, Wyspa> &, void *);
 void getListWoodResultFn(map<pair<int, int>, Wyspa> &, void *);
 void zbieraniePatykowFn(map<pair<int, int>, Wyspa> &, void *);
+void displayWorldFn(vector<vector<Pole> > &, void *);
 
 /////
 
@@ -1286,6 +1296,8 @@ int main(int argc, char ** argv){
   int mnoznikPunktowZaPatykiWOgnisku = 10;
   int maksymalnaIloscTurNaRunde = 1000;
   
+  NYI dlugoscBokuPlanszy = 30; liczbaWysp = 30;
+  
   if(argc > 2){
     czasTrwaniaTury = strtol(argv[2], &endptr, 0);
     if(*endptr || 1 > czasTrwaniaTury || czasTrwaniaTury > 5){SYS_ERROR("Czas trwania tury musi byc liczba calkowita z przedzialu [1;5]."); return EXIT_CODE_COUNTER;}
@@ -1395,7 +1407,7 @@ int main(int argc, char ** argv){
     
     int dummy_PoczatkoweB = rand()%8+3;
     
-    ParametryRozgrywki ->setK(pow(Pod, time(NULL)-CzasStartuGry));
+    ParametryRozgrywki ->setK(pow(Pod, czasRzeczywisty()-CzasStartuGry));
     PoczatkoweB        ->set(dummy_PoczatkoweB);
     L                  ->set(maksymalnaIloscTurNaRunde);
     Tstart             ->set(czasRzeczywisty());
@@ -1411,27 +1423,6 @@ int main(int argc, char ** argv){
     ){
       BPerDruzyna->insert(make_pair(it->first, dummy_PoczatkoweB));
     }
-    
-// // niebezpieczny kod do debugu!!!
-//     
-//     for(int y=0;y<nonatomic_ParametryRozgrywki.getN();++y){
-//       for(int x=0;x<nonatomic_ParametryRozgrywki.getN();++x){
-//         if(nonatomic_Mapa[x][y].getWyspa()){
-//           cout << "#(" << nonatomic_Wyspy.find(make_pair(x,y))->second.getSticks() << ')';
-//           x += NumberToString(nonatomic_Wyspy.find(make_pair(x,y))->second.getSticks()).size()+2;
-//         }
-//         else
-//           cout << '.';
-//       }
-//       cout << endl;
-//     }
-//     
-//     cout << endl;
-//     
-//     for(set<Top5_Element, greater<Top5_Element> >::iterator it = nonatomic_Top5.begin(); nonatomic_Top5.end() != it; ++it)
-//       cout << it->getSticks() << " (" << it->getCoords().first << ',' << it->getCoords().second << ')' << endl;
-//     
-// // koniec niebezpiecznego kodu
     
     RozbitkowiePerDruzyna->clear();
     MyWoodPerDruzyna     ->clear();
@@ -1473,6 +1464,8 @@ int main(int argc, char ** argv){
         L->set((*L).get()-1), // kopiujemy L, odejmujemy 1 od kopii i przypisujemy
         Tstart->set(czasRzeczywisty())
        ){ // petla po turach
+    
+      ParametryRozgrywki ->setK(pow(Pod, czasRzeczywisty()-CzasStartuGry));
       
       int dummy_ZuczkiSize = Zuczki->size();
       
@@ -1491,10 +1484,13 @@ int main(int argc, char ** argv){
     
       Wyspy.runFunction(generujTop5Fn);
       
-      int T_dummy = ParametryRozgrywki->getT();
-      mySleep(T_dummy - 0.1);
       
-      cout << "Nowa tura." << endl;
+      Mapa.runFunction(displayWorldFn);
+      
+      double czasOczekiwania = Tstart->get() + ParametryRozgrywki->getT() - czasRzeczywisty();
+      mySleep(czasOczekiwania - 0.1);
+      
+//       cout << "Nowa tura." << endl;
     }
     
   }
@@ -1601,6 +1597,60 @@ void zbieraniePatykowFn(map<pair<int, int>, Wyspa> & unwrapped_Wyspy, void *){
     it->second.letTakersTake(Mapa, Zuczki);
   
 }
+
+void displayWorldFn(vector<vector<Pole> > & unwrapped_Mapa, void *){
+  
+  vector<string> buffer(1);
+  
+  for(int y=0;y<unwrapped_Mapa.size();++y){
+    for(int x=0;x<unwrapped_Mapa.size();++x){
+      if(unwrapped_Mapa[x][y].getWyspa()){
+        
+        int sticks = Wyspy->find(make_pair(x,y))->second.getSticks();
+        
+        buffer[buffer.size()-1] += "#(" + NumberToString(sticks) + ")";
+        x += NumberToString(sticks).size()+2;
+      }
+      else
+        buffer[buffer.size()-1] += ".";
+    }
+    buffer.push_back("");
+  }
+  
+  for(int y=0;y<unwrapped_Mapa.size();++y)
+    for(int x=0;x<unwrapped_Mapa.size();++x)
+      if(unwrapped_Mapa[x][y].getWyspa())
+        buffer[y][x] = '#';
+  
+  int dummy_ZuczkiSize = Zuczki->size();
+  for(int i=0;i<dummy_ZuczkiSize;++i){
+    pair<int, int> coords = Zuczki->at(i).getZuczekCoords();
+//     buffer[coords.second][coords.first] = NumberToString(Zuczki->at(i).getCarriedSticks()%10)[0];
+    buffer[coords.second][coords.first] = hashStringToLetter(Zuczki->at(i).getNazwaDruzyny());
+  }
+  
+  for(int i=0;i<buffer.size();++i)
+    cout << buffer[i] << endl;
+  
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
