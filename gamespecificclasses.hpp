@@ -269,6 +269,15 @@ public:
     Sticks(_Sticks),
     burning(false){}
   
+  bool getBurning(){ return burning; }
+  int   getSticks(){ return Sticks;  }
+  
+  int getTeamsSticks(string nazwaDruzyny){
+    map<string, int>::iterator it = teamSticks.find(nazwaDruzyny);
+    if(teamSticks.end() == it) return 0;
+    return it->second;
+  }
+  
   void ignition(AtomicWrapper<map<string, MyWood> > & MyWoodPerDruzyna,
                 AtomicWrapper<DescribeWorld> & ParametryRozgrywki){
     burning = true;
@@ -280,14 +289,6 @@ public:
             ++it){
           MyWoodPerDruzyna->find(it->first)->second.addToT( it->second * (ParametryRozgrywki->getF() - 1) );
         }
-  }
-  
-  int getSticks(){ return Sticks; }
-  
-  int getTeamsSticks(string nazwaDruzyny){
-    map<string, int>::iterator it = teamSticks.find(nazwaDruzyny);
-    if(teamSticks.end() == it) return 0;
-    return it->second;
   }
   
   void leaveSticks(int howMany, string nazwaDruzyny,

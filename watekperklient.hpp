@@ -14,6 +14,8 @@ bool sprawdzCzyZuczekJestZajety                (FILE * handlerSocketu, int ID); 
 bool sprawdzCzyZuczekJestZajetyIZajmijGo       (FILE * handlerSocketu, int ID, int newBusyCounter); // 109, 111
 bool sprawdzCzyZuczekMaPatyki                  (FILE * handlerSocketu, int ID); // 108
 bool sprawdzCzyZuczekMozeZostacStraznikiem     (FILE * handlerSocketu, int ID); // 110, 115 // czy jest juz straznikiem i czy jest kapitanem
+bool sprawdzCzyZuczekJestStraznikiem           (FILE * handlerSocketu, int ID); // 112 // czy moze przestac nim byc
+bool sprawdzCzyDrewnoNaWyspieSiePali           (FILE * handlerSocketu, int ID); // 120
 
 /////
 
@@ -161,6 +163,7 @@ NYI //TODO
       && sprawdzIParsujStringDoInta              (handlerSocketu, komenda[1], ID)
       && sprawdzCzyZuczekIstniejeINalezyDoDruzyny(handlerSocketu, ID, nazwaDruzyny)
       && sprawdzCzyZuczekJestNaWyspie            (handlerSocketu, ID)
+      && sprawdzCzyDrewnoNaWyspieSiePali         (handlerSocketu, ID)
       && sprawdzCzyZuczekJestZajetyIZajmijGo     (handlerSocketu, ID, 1)
       ){
         sendString(handlerSocketu, "OK");
@@ -210,10 +213,21 @@ NYI //TODO
     }
     else if("STOP_GUARDING" == komenda[0]){
       
-      sendError(handlerSocketu, 5);
+      int ID;
       
-NYI //TODO
-      
+      if(sprawdzIloscArgumentow                  (handlerSocketu, komenda, 1)
+      && sprawdzIParsujStringDoInta              (handlerSocketu, komenda[1], ID)
+      && sprawdzCzyZuczekIstniejeINalezyDoDruzyny(handlerSocketu, ID, nazwaDruzyny)
+      && sprawdzCzyZuczekJestStraznikiem         (handlerSocketu, ID)
+      ){
+        sendString(handlerSocketu, "OK");
+        
+        pair<int, int> coordsDummy = Zuczki->at(ID).getZuczekCoords();
+        
+        Mapa->at(coordsDummy.first).at(coordsDummy.second).decrementG();
+        Zuczki->at(ID).setBusyCounter(0);
+        Zuczki->at(ID).setRole(Zuczek::NONE);
+      }
     }
     else if("LIST_WOOD" == komenda[0]){
       
@@ -528,6 +542,32 @@ bool sprawdzCzyZuczekMozeZostacStraznikiem(FILE * handlerSocketu, int ID){ // 11
   
   if(Zuczek::CAPTAIN == roleDummy){
     sendError(handlerSocketu, 115);
+    return false;
+  }
+  
+  return true;
+}
+
+bool sprawdzCzyZuczekJestStraznikiem(FILE * handlerSocketu, int ID){ // 112 // czy moze przestac nim byc
+  
+  Zuczek::RoleEnum roleDummy = Zuczki->at(ID).getRole();
+  
+  if(Zuczek::GUARD != roleDummy){
+    sendError(handlerSocketu, 112);
+    return false;
+  }
+  
+  return true;
+}
+
+bool sprawdzCzyDrewnoNaWyspieSiePali(FILE * handlerSocketu, int ID){ // 120
+  
+  pair<int, int> coordsDummy = Zuczki->at(ID).getZuczekCoords();
+  
+  bool burningDummy = Wyspy->find(coordsDummy)->second.getBurning();
+  
+  if(burningDummy){
+    sendError(handlerSocketu, 120);
     return false;
   }
   

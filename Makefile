@@ -3,7 +3,7 @@ CFLAGS=-Wall -g
 LDFLAGS=-pthread -g
 PLIKI=serwer
 
-all: $(PLIKI)
+all: clean $(PLIKI)
 
 clean:
 	rm -f $(PLIKI)
