@@ -1,38 +1,18 @@
 #ifndef WATEKPERKLIENT_HPP
 #define WATEKPERKLIENT_HPP
 
-// TODO refaktoryzacja - funkcje sprawdzajace czy zachodza bledy i wysylajace je do klientow
 
-int sprawdzZuczka(int ID, string nazwaDruzyny){ // funkcja zwraca 0 jesli zuczek istnieje i nalezy do zadanej druzyny, w przeciwnym przypadku zwraca kod bledu
-  
-  int ZuczkiSizeDummy = Zuczki->size();
-  set<int> rpdDummy = RozbitkowiePerDruzyna->find(nazwaDruzyny)->second;
-  
-  if(0 > ID || ID >= ZuczkiSizeDummy || rpdDummy.end() == rpdDummy.find(ID))
-    return 101;
-  
-  Zuczek zuczekDummy = Zuczki->at(ID);
-  
-  if(zuczekDummy.getUtopiony())
-    return 105;
-  
-  
-  return 0;
-}
 
-bool czyWspolrzedneSaPozaPlansza(const pair<int, int> & coords){
-  
-  if(coords.first < 0 || coords.second < 0)
-    return true;
-  
-  int dummy_N = ParametryRozgrywki->getN();
-  
-  if(coords.first >= dummy_N || coords.second >= dummy_N)
-    return true;
-  
-  return false;
-  
-}
+bool sprawdzIloscArgumentow                    (FILE * handlerSocketu, const vector<string> & komenda, int iloscArgumentow); // 3, 4
+bool sprawdzIParsujStringDoInta                (FILE * handlerSocketu, const string & str, int & ID); // 3
+bool sprawdzCzyZuczekIstniejeINalezyDoDruzyny  (FILE * handlerSocketu, int ID, const string & nazwaDruzyny); // 101, 105
+bool sprawdzCzyZuczekJestNaWyspie              (FILE * handlerSocketu, int ID); // 104
+bool sprawdzCzyNaWyspieMoznaRozpalicOgnisko    (FILE * handlerSocketu, int ID); // 107
+bool sprawdzCzyWzgledneWspolrzedneSaJednostkowe(FILE * handlerSocketu, int dX, int dY); // 102
+bool sprawdzCzyZuczekWyjdzieZaPlansze          (FILE * handlerSocketu, int ID, int dX, int dY); // 103
+bool sprawdzCzyZuczekJestZajety                (FILE * handlerSocketu, int ID); // 109, 111
+bool sprawdzCzyZuczekJestZajetyIZajmijGo       (FILE * handlerSocketu, int ID, int newBusyCounter); // 109, 111
+bool sprawdzCzyZuczekMaPatyki                  (FILE * handlerSocketu, int ID); // 108
 
 /////
 
@@ -51,9 +31,7 @@ void * watekPerKlient(void* _arg){
     
     if("DESCRIBE_WORLD" == komenda[0]){
       
-      if(komenda.size() < 1) sendError(handlerSocketu, 3);
-      else if(komenda.size() > 1) sendError(handlerSocketu, 4);
-      else{
+      if(sprawdzIloscArgumentow(handlerSocketu, komenda, 0)){
         sendString(handlerSocketu, "OK");
         
         DescribeWorld dwDummy = *ParametryRozgrywki;
@@ -66,18 +44,18 @@ void * watekPerKlient(void* _arg){
                    NumberToString(dwDummy.getK())
                   );
       }
-      
     }
     else if("TIME_TO_RESCUE" == komenda[0]){
       
-      if(komenda.size() < 1) sendError(handlerSocketu, 3);
-      else if(komenda.size() > 1) sendError(handlerSocketu, 4);
-      else{
+      if(sprawdzIloscArgumentow(handlerSocketu, komenda, 0)){
         sendString(handlerSocketu, "OK");
         
+        bool fsDummy = FireStatus->get();
+        int lDummy = L->get();
+        
         sendString(handlerSocketu,
-                   string(FireStatus->get() ? "BURNING" : "NONE") + " " +
-                   NumberToString(L->get())
+                   string(fsDummy ? "BURNING" : "NONE") + " " +
+                   NumberToString(lDummy)
                   );
         
         set<Top5_Element, greater<Top5_Element> > t5Dummy = *Top5;
@@ -94,13 +72,10 @@ void * watekPerKlient(void* _arg){
                     );
         
       }
-      
     }
     else if("LIST_SURVIVORS" == komenda[0]){
       
-      if(komenda.size() < 1) sendError(handlerSocketu, 3);
-      else if(komenda.size() > 1) sendError(handlerSocketu, 4);
-      else{
+      if(sprawdzIloscArgumentow(handlerSocketu, komenda, 0)){
         sendString(handlerSocketu, "OK");
         
         set<int> rpdDummy = RozbitkowiePerDruzyna->find(nazwaDruzyny)->second;
@@ -125,320 +100,226 @@ void * watekPerKlient(void* _arg){
                   );
         
       }
-      
     }
     else if("LIST_RAFTS" == komenda[0]){
+      
+      sendError(handlerSocketu, 5);
       
 NYI //TODO
       
     }
     else if("IGNITION" == komenda[0]){
       
-      if(komenda.size() < 2) sendError(handlerSocketu, 3);
-      else if(komenda.size() > 2) sendError(handlerSocketu, 4);
-      else{
-        
-        int kodBledu;
-        
-        char * endptr;
-        int ID = strtol(komenda[1].c_str(), &endptr, 0);
-        if(*endptr)
-          sendError(handlerSocketu, 3);
-        else if(kodBledu = sprawdzZuczka(ID, nazwaDruzyny))
-          sendError(handlerSocketu, kodBledu);
-        else{
-          
-          Zuczek zuczekDummy = Zuczki->at(ID);
-          
-          if(Mapa->at(zuczekDummy.getZuczekCoords().first).at(zuczekDummy.getZuczekCoords().second).getWyspa() == false)
-            sendError(handlerSocketu, 104);
-          else if(Wyspy->find(zuczekDummy.getZuczekCoords())->second.getSticks() < ParametryRozgrywki->getSmin())
-            sendError(handlerSocketu, 107);
-          else{
-            
-            sendString(handlerSocketu, "OK");
-            
-            Wyspy->find(zuczekDummy.getZuczekCoords())->second.ignition(MyWoodPerDruzyna, ParametryRozgrywki);
-            FireStatus->set(true);
-            
-            int dummy_L = L->get();
-            
-            if(dummy_L > 15)
-              L->set(15);
-            
-          }
-        }
-      }
+      int ID;
       
+      if(sprawdzIloscArgumentow                  (handlerSocketu, komenda, 1)
+      && sprawdzIParsujStringDoInta              (handlerSocketu, komenda[1], ID)
+      && sprawdzCzyZuczekIstniejeINalezyDoDruzyny(handlerSocketu, ID, nazwaDruzyny)
+      && sprawdzCzyZuczekJestZajety              (handlerSocketu, ID)
+      && sprawdzCzyZuczekJestNaWyspie            (handlerSocketu, ID)
+      && sprawdzCzyNaWyspieMoznaRozpalicOgnisko  (handlerSocketu, ID)
+      ){
+        sendString(handlerSocketu, "OK");
+        
+        pair<int, int> coordsDummy = Zuczki->at(ID).getZuczekCoords();
+        
+        Wyspy->find(coordsDummy)->second.ignition(MyWoodPerDruzyna, ParametryRozgrywki);
+        FireStatus->set(true);
+        
+        int lDummy = L->get();
+        
+        if(lDummy > 15)
+          L->set(15);
+      }
     }
     else if("MOVE" == komenda[0]){
       
-      if(komenda.size() < 4) sendError(handlerSocketu, 3);
-      else if(komenda.size() > 4) sendError(handlerSocketu, 4);
-      else{
-        
-        int kodBledu;
-        
-        char * endptr;
-        int ID = strtol(komenda[1].c_str(), &endptr, 0);
-        if(*endptr)
-          sendError(handlerSocketu, 3);
-        else if(kodBledu = sprawdzZuczka(ID, nazwaDruzyny))
-          sendError(handlerSocketu, kodBledu);
-        else{
-          
-          int dX = strtol(komenda[2].c_str(), &endptr, 0);
-          if(*endptr)
-            sendError(handlerSocketu, 3);
-          else{
-          
-            int dY = strtol(komenda[3].c_str(), &endptr, 0);
-            
-            if(*endptr)
-              sendError(handlerSocketu, 3);
-            else if( (1 != abs(dX) || 0 != abs(dY))
-                  && (0 != abs(dX) || 1 != abs(dY)) )
-              sendError(handlerSocketu, 102);
-            else{
-              
-              Zuczek zuczekDummy = Zuczki->at(ID);
-              
-              if(czyWspolrzedneSaPozaPlansza(zuczekDummy.getZuczekCoords() + make_pair(dX, dY)))
-                sendError(handlerSocketu, 103);
-              else if(!zuczekDummy.makeBusy(1))
-                sendError(handlerSocketu, 111);
-              else{
-                
-                sendString(handlerSocketu, "OK");
-                
-                Zuczki->at(ID).enqueueMovement(make_pair(dX, dY));
-                
-              }
-            }
-          }
-        }
-      }
+      int ID;
+      int dX;
+      int dY;
       
+      if(sprawdzIloscArgumentow                    (handlerSocketu, komenda, 3)
+      && sprawdzIParsujStringDoInta                (handlerSocketu, komenda[1], ID)
+      && sprawdzIParsujStringDoInta                (handlerSocketu, komenda[2], dX)
+      && sprawdzIParsujStringDoInta                (handlerSocketu, komenda[3], dY)
+      && sprawdzCzyZuczekIstniejeINalezyDoDruzyny  (handlerSocketu, ID, nazwaDruzyny)
+      && sprawdzCzyWzgledneWspolrzedneSaJednostkowe(handlerSocketu, dX, dY)
+      && sprawdzCzyZuczekWyjdzieZaPlansze          (handlerSocketu, ID, dX, dY)
+      && sprawdzCzyZuczekJestZajetyIZajmijGo       (handlerSocketu, ID, 1)
+      ){
+        sendString(handlerSocketu, "OK");
+        
+        Zuczki->at(ID).enqueueMovement(make_pair(dX, dY));
+      }
     }
     else if("TAKE" == komenda[0]){
       
-      if(komenda.size() < 2) sendError(handlerSocketu, 3);
-      else if(komenda.size() > 2) sendError(handlerSocketu, 4);
-      else{
-        
-        int kodBledu;
-        
-        char * endptr;
-        int ID = strtol(komenda[1].c_str(), &endptr, 0);
-        if(*endptr)
-          sendError(handlerSocketu, 3);
-        else if(kodBledu = sprawdzZuczka(ID, nazwaDruzyny))
-          sendError(handlerSocketu, kodBledu);
-        else{
-          
-          Zuczek zuczekDummy = Zuczki->at(ID);
-          
-          if(Mapa->at(zuczekDummy.getZuczekCoords().first).at(zuczekDummy.getZuczekCoords().second).getWyspa() == false)
-            sendError(handlerSocketu, 104);
-          else if(!Zuczki->at(ID).makeBusy(1))
-            sendError(handlerSocketu, 111);
-          else{
-            
-            sendString(handlerSocketu, "OK");
-            
-            Wyspy->find(zuczekDummy.getZuczekCoords())->second.enqueueTaker(ID);
-            
-          }
-        }
-      }
+      int ID;
       
+      if(sprawdzIloscArgumentow                  (handlerSocketu, komenda, 1)
+      && sprawdzIParsujStringDoInta              (handlerSocketu, komenda[1], ID)
+      && sprawdzCzyZuczekIstniejeINalezyDoDruzyny(handlerSocketu, ID, nazwaDruzyny)
+      && sprawdzCzyZuczekJestNaWyspie            (handlerSocketu, ID)
+      && sprawdzCzyZuczekJestZajetyIZajmijGo     (handlerSocketu, ID, 1)
+      ){
+        sendString(handlerSocketu, "OK");
+        
+        pair<int, int> coordsDummy = Zuczki->at(ID).getZuczekCoords();
+        Wyspy->find(coordsDummy)->second.enqueueTaker(ID);
+      }
     }
     else if("GIVE" == komenda[0]){
       
-      if(komenda.size() < 2) sendError(handlerSocketu, 3);
-      else if(komenda.size() > 2) sendError(handlerSocketu, 4);
-      else{
-        
-        int kodBledu;
-        
-        char * endptr;
-        int ID = strtol(komenda[1].c_str(), &endptr, 0);
-        if(*endptr)
-          sendError(handlerSocketu, 3);
-        else if(kodBledu = sprawdzZuczka(ID, nazwaDruzyny))
-          sendError(handlerSocketu, kodBledu);
-        else{
-          
-          Zuczek zuczekDummy = Zuczki->at(ID);
-          
-          if(Mapa->at(zuczekDummy.getZuczekCoords().first).at(zuczekDummy.getZuczekCoords().second).getWyspa() == false)
-            sendError(handlerSocketu, 104);
-          else if(Zuczki->at(ID).getCarriedSticks() == 0)
-            sendError(handlerSocketu, 108);
-          else{
-            
-            sendString(handlerSocketu, "OK");
-            
-            int iloscOddawanychPatykow = Zuczki->at(ID).giveAllCarriedSticks(MyWoodPerDruzyna);
-            
-            Wyspy->find(zuczekDummy.getZuczekCoords())->second.leaveSticks(iloscOddawanychPatykow, nazwaDruzyny, MyWoodPerDruzyna, ParametryRozgrywki);
-            
-          }
-        }
-      }
+      int ID;
       
+      if(sprawdzIloscArgumentow                  (handlerSocketu, komenda, 1)
+      && sprawdzIParsujStringDoInta              (handlerSocketu, komenda[1], ID)
+      && sprawdzCzyZuczekIstniejeINalezyDoDruzyny(handlerSocketu, ID, nazwaDruzyny)
+      && sprawdzCzyZuczekJestZajety              (handlerSocketu, ID)
+      && sprawdzCzyZuczekJestNaWyspie            (handlerSocketu, ID)
+      && sprawdzCzyZuczekMaPatyki                (handlerSocketu, ID)
+      ){
+        sendString(handlerSocketu, "OK");
+        
+        int iloscOddawanychPatykow = Zuczki->at(ID).giveAllCarriedSticks(MyWoodPerDruzyna);
+        
+        pair<int, int> coordsDummy = Zuczki->at(ID).getZuczekCoords();
+        Wyspy->find(coordsDummy)->second.leaveSticks(iloscOddawanychPatykow, nazwaDruzyny, MyWoodPerDruzyna, ParametryRozgrywki);
+      }
     }
     else if("GUARD" == komenda[0]){
+      
+      sendError(handlerSocketu, 5);
       
 NYI //TODO
       
     }
     else if("STOP_GUARDING" == komenda[0]){
       
+      sendError(handlerSocketu, 5);
+      
 NYI //TODO
       
     }
     else if("LIST_WOOD" == komenda[0]){
       
-      if(komenda.size() < 2) sendError(handlerSocketu, 3);
-      else if(komenda.size() > 2) sendError(handlerSocketu, 4);
-      else{
+      int ID;
+      
+      if(sprawdzIloscArgumentow                  (handlerSocketu, komenda, 1)
+      && sprawdzIParsujStringDoInta              (handlerSocketu, komenda[1], ID)
+      && sprawdzCzyZuczekIstniejeINalezyDoDruzyny(handlerSocketu, ID, nazwaDruzyny)
+      && sprawdzCzyZuczekJestNaWyspie            (handlerSocketu, ID)
+      ){
+        sendString(handlerSocketu, "OK");
         
-        int kodBledu;
+        pair<int, int> coordsDummy = Zuczki->at(ID).getZuczekCoords();
+        ListWoodResult listWoodResult(coordsDummy);
+        Wyspy.runFunction(getListWoodResultFn, (void*)&listWoodResult);
         
-        char * endptr;
-        int ID = strtol(komenda[1].c_str(), &endptr, 0);
-        if(*endptr)
-          sendError(handlerSocketu, 3);
-        else if(kodBledu = sprawdzZuczka(ID, nazwaDruzyny))
-          sendError(handlerSocketu, kodBledu);
-        else{
+        sendString(handlerSocketu,
+                   NumberToString(listWoodResult.wspolrzedneIDaneWysp.size())
+                  );
+        
+        for(int i=0; i<listWoodResult.wspolrzedneIDaneWysp.size(); ++i){
           
-          Zuczek zuczekDummy = Zuczki->at(ID);
-          
-          if(Mapa->at(zuczekDummy.getZuczekCoords().first).at(zuczekDummy.getZuczekCoords().second).getWyspa() == false)
-            sendError(handlerSocketu, 104);
-          else{
-            
-            sendString(handlerSocketu, "OK");
-            
-            ListWoodResult listWoodResult(zuczekDummy.getZuczekCoords());
-            Wyspy.runFunction(getListWoodResultFn, (void*)&listWoodResult);
-            
-            sendString(handlerSocketu,
-                       NumberToString(listWoodResult.wspolrzedneIDaneWysp.size())
-                      );
-            
-            for(int i=0; i<listWoodResult.wspolrzedneIDaneWysp.size(); ++i){
-              
-              sendString(handlerSocketu,
-                         NumberToString(listWoodResult.wspolrzedneIDaneWysp[i].first.first+1)      + " " +
-                         NumberToString(listWoodResult.wspolrzedneIDaneWysp[i].first.second+1)     + " " +
-                         NumberToString(listWoodResult.wspolrzedneIDaneWysp[i].second.getSticks()) + " " +
-                         NumberToString(listWoodResult.wspolrzedneIDaneWysp[i].second.getTeamsSticks(nazwaDruzyny))
-                        );
-              
-            }
-            
-          }
+          sendString(handlerSocketu,
+                     NumberToString(listWoodResult.wspolrzedneIDaneWysp[i].first.first+1)      + " " +
+                     NumberToString(listWoodResult.wspolrzedneIDaneWysp[i].first.second+1)     + " " +
+                     NumberToString(listWoodResult.wspolrzedneIDaneWysp[i].second.getSticks()) + " " +
+                     NumberToString(listWoodResult.wspolrzedneIDaneWysp[i].second.getTeamsSticks(nazwaDruzyny))
+                    );
         }
       }
     }
     else if("INFO" == komenda[0]){
       
-      if(komenda.size() < 2) sendError(handlerSocketu, 3);
-      else if(komenda.size() > 2) sendError(handlerSocketu, 4);
-      else{
+      int ID;
+      
+      if(sprawdzIloscArgumentow                  (handlerSocketu, komenda, 1)
+      && sprawdzIParsujStringDoInta              (handlerSocketu, komenda[1], ID)
+      && sprawdzCzyZuczekIstniejeINalezyDoDruzyny(handlerSocketu, ID, nazwaDruzyny)
+      ){
+        Zuczek zuczekDummy = Zuczki->at(ID);
         
-        int kodBledu;
+        sendString(handlerSocketu, "OK");
         
-        char * endptr;
-        int ID = strtol(komenda[1].c_str(), &endptr, 0);
-        if(*endptr)
-          sendError(handlerSocketu, 3);
-        else if(kodBledu = sprawdzZuczka(ID, nazwaDruzyny))
-          sendError(handlerSocketu, kodBledu);
-        else{
+        sendString(handlerSocketu,
+                   NumberToString(zuczekDummy.getZuczekCoords().first+1)  + " " +
+                   NumberToString(zuczekDummy.getZuczekCoords().second+1) + " " +
+                   NumberToString(zuczekDummy.getCarriedSticks())         + " " +
+                   NumberToString(zuczekDummy.getBusyAsString())          + " " +
+                   NumberToString(zuczekDummy.getRoleAsString())
+                  );
+        
+        const pair<int, int> Sasiedzi[] = {
+          make_pair( 0, 0),
+          make_pair( 1, 0),
+          make_pair( 0, 1),
+          make_pair(-1, 0),
+          make_pair( 0,-1)
+        };
+        
+        for(int i=0; i<sizeof(Sasiedzi)/sizeof(pair<int, int>); ++i){
           
-          Zuczek zuczekDummy = Zuczki->at(ID);
+          pair<int, int> fieldCoords = zuczekDummy.getZuczekCoords() + Sasiedzi[i];
           
-          sendString(handlerSocketu, "OK");
+          int nDummy = ParametryRozgrywki->getN();
           
-          sendString(handlerSocketu,
-                     NumberToString(zuczekDummy.getZuczekCoords().first+1)  + " " +
-                     NumberToString(zuczekDummy.getZuczekCoords().second+1) + " " +
-                     NumberToString(zuczekDummy.getCarriedSticks())         + " " +
-                     NumberToString(zuczekDummy.getBusyAsString())          + " " +
-                     NumberToString(zuczekDummy.getRoleAsString())
-                    );
-          
-          const pair<int, int> Sasiedzi[] = {
-            make_pair( 0, 0),
-            make_pair( 1, 0),
-            make_pair( 0, 1),
-            make_pair(-1, 0),
-            make_pair( 0,-1)
-          };
-          
-          for(int i=0; i<sizeof(Sasiedzi)/sizeof(pair<int, int>); ++i){
+          if(fieldCoords.first < 0       || fieldCoords.second < 0
+          || fieldCoords.first >= nDummy || fieldCoords.second >= nDummy)
+            sendString(handlerSocketu,
+                       "NIL"
+                      );
+          else{
             
-            pair<int, int> fieldCoords = zuczekDummy.getZuczekCoords() + Sasiedzi[i];
+            Pole PoleDummy = Mapa->at(fieldCoords.first).at(fieldCoords.second);
             
-            int N_Dummy = ParametryRozgrywki->getN();
-            
-            if(fieldCoords.first < 0        || fieldCoords.second < 0 ||
-               fieldCoords.first >= N_Dummy || fieldCoords.second >= N_Dummy)
-              sendString(handlerSocketu,
-                     "NIL"
-                    );
-            else{
-              
-              Pole PoleDummy = Mapa->at(fieldCoords.first).at(fieldCoords.second);
-              
-              sendString(handlerSocketu,
-                         PoleDummy.getWyspaAsString()       + " " +
-                         NumberToString(Sasiedzi[i].first)  + " " +
-                         NumberToString(Sasiedzi[i].second) + " " +
-                         NumberToString(PoleDummy.getB())   + " " +
-                         NumberToString(PoleDummy.getG())   + " " +
-                         NumberToString(PoleDummy.getR_O()) + " " +
-                         NumberToString(PoleDummy.getR_A()) + " " +
-                         NumberToString(PoleDummy.getS_O()) + " " +
-                         NumberToString(PoleDummy.getS_A())
-                        );
-              
-            }
-            
+            sendString(handlerSocketu,
+                       PoleDummy.getWyspaAsString()       + " " +
+                       NumberToString(Sasiedzi[i].first)  + " " +
+                       NumberToString(Sasiedzi[i].second) + " " +
+                       NumberToString(PoleDummy.getB())   + " " +
+                       NumberToString(PoleDummy.getG())   + " " +
+                       NumberToString(PoleDummy.getR_O()) + " " +
+                       NumberToString(PoleDummy.getR_A()) + " " +
+                       NumberToString(PoleDummy.getS_O()) + " " +
+                       NumberToString(PoleDummy.getS_A())
+                      );
           }
-          
         }
       }
     }
     else if("BUILD" == komenda[0]){
+      
+      sendError(handlerSocketu, 5);
       
 NYI //TODO
       
     }
     else if("ABANDON" == komenda[0]){
       
+      sendError(handlerSocketu, 5);
+      
 NYI //TODO
       
     }
     else if("TAKE_OVER" == komenda[0]){
+      
+      sendError(handlerSocketu, 5);
       
 NYI //TODO
       
     }
     else if("DRY" == komenda[0]){
       
+      sendError(handlerSocketu, 5);
+      
 NYI //TODO
       
     }
     else if("MY_WOOD" == komenda[0]){
       
-      if(komenda.size() < 1) sendError(handlerSocketu, 3);
-      else if(komenda.size() > 1) sendError(handlerSocketu, 4);
-      else{
+      if(sprawdzIloscArgumentow(handlerSocketu, komenda, 0)){
         sendString(handlerSocketu, "OK");
         
         MyWood mwDummy = MyWoodPerDruzyna->find(nazwaDruzyny)->second;
@@ -448,13 +329,10 @@ NYI //TODO
                    NumberToString(mwDummy.getC())
                   );
       }
-      
     }
     else if("WAIT" == komenda[0]){
       
-      if(komenda.size() < 1) sendError(handlerSocketu, 3);
-      else if(komenda.size() > 1) sendError(handlerSocketu, 4);
-      else{
+      if(sprawdzIloscArgumentow(handlerSocketu, komenda, 0)){
         sendString(handlerSocketu, "OK");
         
         double czasOczekiwania = Tstart->get() + ParametryRozgrywki->getT() - czasRzeczywisty();
@@ -467,7 +345,6 @@ NYI //TODO
         
         sendString(handlerSocketu, "OK");
       }
-      
     }
     else
       sendError(handlerSocketu, 2);
@@ -475,5 +352,155 @@ NYI //TODO
   }
   
 } // koniec watku per klient
+
+/////
+
+bool sprawdzIloscArgumentow(FILE * handlerSocketu, const vector<string> & komenda, int iloscArgumentow){ // 3, 4
+  
+  if(komenda.size() < 1 + iloscArgumentow){
+    sendError(handlerSocketu, 3);
+    return false;
+  }
+  
+  if(komenda.size() > 1 + iloscArgumentow){
+    sendError(handlerSocketu, 4);
+    return false;
+  }
+  
+  return true;
+}
+
+bool sprawdzIParsujStringDoInta(FILE * handlerSocketu, const string & str, int & ID){ // 3
+  
+  char * endptr;
+  ID = strtol(str.c_str(), &endptr, 0);
+  
+  if(*endptr){
+    sendError(handlerSocketu, 3);
+    return false;
+  }
+  
+  return true;
+}
+
+bool sprawdzCzyZuczekIstniejeINalezyDoDruzyny(FILE * handlerSocketu, int ID, const string & nazwaDruzyny){ // 101, 105
+  
+  int ZuczkiSizeDummy = Zuczki->size();
+  set<int> rpdDummy = RozbitkowiePerDruzyna->find(nazwaDruzyny)->second;
+  
+  if(0 > ID || ID >= ZuczkiSizeDummy || rpdDummy.end() == rpdDummy.find(ID)){
+    sendError(handlerSocketu, 101);
+    return false;
+  }
+  
+  bool utopionyDummy = Zuczki->at(ID).getUtopiony();
+  
+  if(utopionyDummy){
+    sendError(handlerSocketu, 105);
+    return false;
+  }
+  
+  return true;
+}
+
+bool sprawdzCzyZuczekJestNaWyspie(FILE * handlerSocketu, int ID){ // 104
+  
+  pair<int, int> coordsDummy = Zuczki->at(ID).getZuczekCoords();
+  bool wyspaDummy = Mapa->at(coordsDummy.first).at(coordsDummy.second).getWyspa();
+  
+  if(!wyspaDummy){
+    sendError(handlerSocketu, 104);
+    return false;
+  }
+  
+  return true;
+}
+
+bool sprawdzCzyNaWyspieMoznaRozpalicOgnisko(FILE * handlerSocketu, int ID){ // 107
+  
+  pair<int, int> coordsDummy = Zuczki->at(ID).getZuczekCoords();
+  int sticksDummy = Wyspy->find(coordsDummy)->second.getSticks();
+  int SminDummy = ParametryRozgrywki->getSmin();
+  
+  if(sticksDummy < SminDummy){
+    sendError(handlerSocketu, 107);
+    return false;
+  }
+  
+  return true;
+}
+
+bool sprawdzCzyWzgledneWspolrzedneSaJednostkowe(FILE * handlerSocketu, int dX, int dY){ // 102
+  
+  if( (1 != abs(dX) || 0 != abs(dY))
+   && (0 != abs(dX) || 1 != abs(dY)) ){
+     sendError(handlerSocketu, 102);
+     return false;
+  }
+  
+  return true;
+}
+
+bool sprawdzCzyZuczekWyjdzieZaPlansze(FILE * handlerSocketu, int ID, int dX, int dY){ // 103
+  
+  pair<int, int> coordsDummy = Zuczki->at(ID).getZuczekCoords()
+                               + make_pair(dX, dY);
+  int nDummy = ParametryRozgrywki->getN();
+  
+  if(coordsDummy.first < 0       || coordsDummy.second < 0
+  || coordsDummy.first >= nDummy || coordsDummy.second >= nDummy){
+    sendError(handlerSocketu, 103);
+    return false;
+  }
+  
+  return true;
+}
+
+bool sprawdzCzyZuczekJestZajety(FILE * handlerSocketu, int ID){ // 109, 111
+  
+  int busyCounterDummy = Zuczki->at(ID).getBusyCounter();
+  
+  if(busyCounterDummy != 0){
+    if(busyCounterDummy < 0)
+      sendError(handlerSocketu, 109);
+    else
+      sendError(handlerSocketu, 111);
+    
+    return false;
+  }
+  
+  return true;
+}
+
+bool sprawdzCzyZuczekJestZajetyIZajmijGo(FILE * handlerSocketu, int ID, int newBusyCounter){ // 109, 111
+  
+  bool makeBusyRet = Zuczki->at(ID).makeBusy(newBusyCounter);
+  
+  if(makeBusyRet == false){
+    
+    int busyCounterDummy = Zuczki->at(ID).getBusyCounter();
+    
+    if(busyCounterDummy < 0)
+      sendError(handlerSocketu, 109);
+    else
+      sendError(handlerSocketu, 111);
+    
+    return false;
+  }
+  
+  return true;
+}
+
+bool sprawdzCzyZuczekMaPatyki (FILE * handlerSocketu, int ID){ // 108
+  
+  int csDummy = Zuczki->at(ID).getCarriedSticks();
+  
+  if(0 == csDummy){
+    sendError(handlerSocketu, 108);
+    return false;
+  }
+  
+  return true;
+}
 
 #endif
