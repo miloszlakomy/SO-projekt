@@ -44,6 +44,17 @@ void interrupt(int signo){ exit(0); }
 
 const string bialeZnaki = " \t\r";
 
+const string clearScreen = string() + char(27) + "[2J" + char(27) + "[;H";
+
+const string setTextColor_Black   = string() + char(27) + "[30m";
+const string setTextColor_Red     = string() + char(27) + "[31m";
+const string setTextColor_Green   = string() + char(27) + "[32m";
+const string setTextColor_Yellow  = string() + char(27) + "[33m";
+const string setTextColor_Blue    = string() + char(27) + "[34m";
+const string setTextColor_Magenta = string() + char(27) + "[35m";
+const string setTextColor_Cyan    = string() + char(27) + "[36m";
+const string setTextColor_White   = string() + char(27) + "[37m";
+
 const int WIELKOSC_BACKLOGU = 100;
 
 const double Pod = 1.00002406790006336880498073623209268063; // podstawa funkcji wykladniczej wspolczynnika skalujacego wynik od czasu

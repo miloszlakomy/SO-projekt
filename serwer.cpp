@@ -301,7 +301,6 @@ int main(int argc, char ** argv){
   
     Wyspy.runFunction(generujTop5Fn);
     
-    
     Mapa.runFunction(displayWorldFn);
     
     double czasOczekiwania = Tstart->get() + ParametryRozgrywki->getT() - czasRzeczywisty();

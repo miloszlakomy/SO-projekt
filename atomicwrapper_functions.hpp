@@ -82,9 +82,39 @@ void displayWorldFn(vector<vector<Pole> > & unwrapped_Mapa, void *){
       buffer[coords.second][coords.first] = hashStringToLetter(Zuczki->at(i).getNazwaDruzyny());
     }
   
-  for(int i=0;i<buffer.size();++i)
-    cout << buffer[i] << endl;
+  string buffer2;
   
+  buffer2 += clearScreen;
+  for(int i=0;i<buffer.size();++i){
+    for(int j=0;j<buffer[i].size();++j){
+      switch(buffer[i][j]){
+        case '.': break;
+        case '#': buffer2 += setTextColor_Green; break;
+        case '(':
+        case ')':
+        case '0':
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7':
+        case '8':
+        case '9':
+                  buffer2 += setTextColor_White; break;
+        default:  buffer2 += setTextColor_Red;
+      }
+      buffer2 += buffer[i][j];
+      
+      if('.' != buffer[i][j])
+       buffer2 += setTextColor_Blue;
+    }
+    buffer2 += "\n";
+  }
+  buffer2 += setTextColor_White;
+  
+  cout << buffer2 << flush;
 }
 
 #endif
