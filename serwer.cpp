@@ -289,7 +289,7 @@ int main(int argc, char ** argv){
     Wyspy.runFunction(zbieraniePatykowFn); // ta funkcja musi byc wywolana przed dekrementacja BusyCounterow
     
     for(int i=0; i<dummy_ZuczkiSize; ++i){
-      Zuczki->at(i).makeMovement();
+      Zuczki->at(i).makeMovement(Mapa);
       
       Zuczki->at(i).decrementBusyCounterIfBusy();
       

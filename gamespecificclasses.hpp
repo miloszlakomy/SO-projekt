@@ -27,8 +27,8 @@ public:
        wyspa(_wyspa), B(_B), G(_G), R_O(_R_O), R_A(_R_A), S_O(_S_O), S_A(_S_A){}
   
   void setWyspa(bool _wyspa){ wyspa = _wyspa; }
-  void setB    (int  _B)    { B     = _B;     }
-  void setG    (int  _G)    { G     = _G;     }
+//   void setB    (int  _B)    { B     = _B;     }
+//   void setG    (int  _G)    { G     = _G;     }
   void setR_O  (int  _R_O)  { R_O   = _R_O;   }
   void setR_A  (int  _R_A)  { R_A   = _R_A;   }
   void setS_O  (int  _S_O)  { S_O   = _S_O;   }
@@ -51,6 +51,12 @@ public:
   void decrementB(){
     if(0 == B){SYS_ERROR("Dekrementacja ilosci zuczkow na polu, gdzie nie ma zuczkow."); exit(EXIT_CODE_COUNTER);}
     --B;
+  }
+  
+  void incrementG(){ ++G; }
+  void decrementG(){
+    if(0 == G){SYS_ERROR("Dekrementacja ilosci straznikow na polu, gdzie nie ma straznikow."); exit(EXIT_CODE_COUNTER);}
+    --G;
   }
   
 };
@@ -80,12 +86,16 @@ public:
 
 class Zuczek{
   
+public:
+  
   enum RoleEnum{
     GUARD,
     CAPTAIN,
     BUILDER,
     NONE
   };
+  
+private:
   
   pair<int, int> zuczekCoords;
   string nazwaDruzyny;
@@ -95,12 +105,16 @@ class Zuczek{
   bool utopiony;
   pair<int, int> enqueuedMovementRelativeCoords;
   
-  void move(int dX, int dY){
+  void move(int dX, int dY, AtomicWrapper<vector<vector<Pole> > > & Mapa){
     if( (1 != abs(dX) || 0 != abs(dY))
      && (0 != abs(dX) || 1 != abs(dY)) ) {SYS_ERROR("Proba przesuniecia zuczka o inna liczbe pol niz 1."); exit(EXIT_CODE_COUNTER);}
     
+    Mapa->at(zuczekCoords.first).at(zuczekCoords.second).decrementB();
+    
     zuczekCoords.first  += dX;
     zuczekCoords.second += dY;
+    
+    Mapa->at(zuczekCoords.first).at(zuczekCoords.second).incrementB();
   }
   
 public:
@@ -164,6 +178,8 @@ public:
   
   void addSticks(int numberOfSticks, AtomicWrapper<map<string, MyWood> > & MyWoodPerDruzyna){
     
+    // TODO zapamietywac pochodzenie drewna
+    
     if(getCapacity() - numberOfSticks < 0) {SYS_ERROR("Proba dodania patykow do pelnego zuczka."); exit(EXIT_CODE_COUNTER);}
     
     MyWoodPerDruzyna->find(nazwaDruzyny)->second.addToC(numberOfSticks);
@@ -182,10 +198,10 @@ public:
     enqueuedMovementRelativeCoords = relativeCoords;
   }
   
-  void makeMovement(){
+  void makeMovement(AtomicWrapper<vector<vector<Pole> > > & Mapa){
     
     if(make_pair(0,0) != enqueuedMovementRelativeCoords){
-      move(enqueuedMovementRelativeCoords.first, enqueuedMovementRelativeCoords.second);
+      move(enqueuedMovementRelativeCoords.first, enqueuedMovementRelativeCoords.second, Mapa);
       enqueuedMovementRelativeCoords = make_pair(0,0);
     }
     
@@ -277,6 +293,8 @@ public:
   void leaveSticks(int howMany, string nazwaDruzyny,
                    AtomicWrapper<map<string, MyWood> > & MyWoodPerDruzyna,
                    AtomicWrapper<DescribeWorld> & ParametryRozgrywki){
+    
+    // TODO uzaleznic znakowanie drewna od jego pochodzenia
     
     Sticks += howMany;
     teamSticks[nazwaDruzyny] += howMany;
@@ -455,14 +473,10 @@ public:
                 MyWoodPerDruzyna->find(it->first)->second.addToS( -1 );
                 MyWoodPerDruzyna->find(it->first)->second.addToT( -1 );
               }
-            
           }
         }
-        
       }
-      
     }
-    
   }
   
 };
