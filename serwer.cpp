@@ -3,6 +3,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <sys/time.h>
 
 #include <cstdio>
 #include <cstdlib>
@@ -13,6 +14,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <sstream>
 
 #include <string>
 #include <vector>
@@ -28,13 +30,6 @@ using namespace std;
 #include "gamestate.hpp"
 #include "watekperklient.hpp"
 #include "atomicwrapper_functions.hpp"
-
-/////
-
-void generujTop5Fn(map<pair<int, int>, Wyspa> &, void *);
-void getListWoodResultFn(map<pair<int, int>, Wyspa> &, void *);
-void zbieraniePatykowFn(map<pair<int, int>, Wyspa> &, void *);
-void displayWorldFn(vector<vector<Pole> > &, void *);
 
 /////
 
@@ -62,7 +57,7 @@ void * watekAkceptora(void*){
       
       handlerySocketowINazwyZespolowPerKlient.push_back(make_pair(handlerSocketuKlienta, nazwaDruzynyKlienta));
       
-      cout << "Polaczono z klientem druzyny \"" << nazwaDruzynyKlienta << '"' << endl;
+      logger << "Polaczono z klientem druzyny \"" << nazwaDruzynyKlienta << '"' << endl;
       
       pthread_t dummy;
       if(pthread_create(&dummy, NULL, watekPerKlient, (void*)&handlerySocketowINazwyZespolowPerKlient.back())){SYS_ERROR("pthread_create error"); exit(EXIT_CODE_COUNTER);}
@@ -172,6 +167,11 @@ int main(int argc, char ** argv){
   
   usersInputFileStream.close();
   if(usersInputFileStream.fail()){SYS_ERROR("ifstream::close error"); return EXIT_CODE_COUNTER;}
+  
+  /////
+  
+  logger.open("log", ofstream::out | ofstream::trunc);
+  if(logger.fail()){SYS_ERROR("Nie udalo sie otworzyc pliku loggera \"log\"."); return EXIT_CODE_COUNTER;}
   
   /////
 
@@ -306,11 +306,10 @@ int main(int argc, char ** argv){
     double czasOczekiwania = Tstart->get() + ParametryRozgrywki->getT() - czasRzeczywisty();
     mySleep(czasOczekiwania - 0.1);
     
-//       cout << "Nowa tura." << endl;
+    logger << "Nowa tura." << endl;
   }
   
-  
-  //TODO wypisywanie punktacji
+  MyWoodPerDruzyna.runFunction(generujWynikiFn);
   
   return 0;
 }

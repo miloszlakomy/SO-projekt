@@ -1,6 +1,17 @@
 #ifndef ATOMICWRAPPER_FUNCTIONS_HPP
 #define ATOMICWRAPPER_FUNCTIONS_HPP
 
+
+void generujWynikiFn(map<string, MyWood> & unwrapped_MyWoodPerDruzyna, void *){
+  
+  logger << endl << "Wyniki:" << endl;
+  
+  for(map<string, MyWood>::iterator it = unwrapped_MyWoodPerDruzyna.begin();
+      unwrapped_MyWoodPerDruzyna.end() != it;
+      ++it)
+    logger << it->first << ' ' << it->second.getT() << endl;
+}
+
 void generujTop5Fn(map<pair<int, int>, Wyspa> & unwrapped_Wyspy, void *){
   
   set<Top5_Element, greater<Top5_Element> > dummy_Top5;

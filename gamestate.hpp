@@ -2,6 +2,8 @@
 #define GAMESTATE_HPP
 
 
+
+void generujWynikiFn(map<string, MyWood> &, void *);
 void generujTop5Fn(map<pair<int, int>, Wyspa> &, void *);
 void getListWoodResultFn(map<pair<int, int>, Wyspa> &, void *);
 void zbieraniePatykowFn(map<pair<int, int>, Wyspa> &, void *);

@@ -1,15 +1,6 @@
 #ifndef HEADER_HPP
 #define HEADER_HPP
 
-#include <sys/time.h>
-
-#include <cstdio>
-#include <string>
-
-#include <sstream>
-
-using namespace std;
-
 
 
 void SYS_ERROR(string str){
@@ -62,6 +53,8 @@ const double Pod = 1.00002406790006336880498073623209268063; // podstawa funkcji
 int deskryptorSocketuAkceptora = -1;
 vector<pair<FILE *, string> > handlerySocketowINazwyZespolowPerKlient;
 
+ofstream logger;
+
 void clean()
 {
   if(-1 != deskryptorSocketuAkceptora)
@@ -69,6 +62,7 @@ void clean()
   for(int i=0;i<handlerySocketowINazwyZespolowPerKlient.size();++i)
     if(NULL != handlerySocketowINazwyZespolowPerKlient[i].first)
       fclose(handlerySocketowINazwyZespolowPerKlient[i].first);
+  logger.close();
 }
 
 template <typename T>
@@ -147,8 +141,7 @@ void sendError(FILE * handler, int kodBledu, bool newline = true){
       return;
   }
   
-  if(104 != kodBledu) //TODO usunac ta linie
-    cout << "Wysylam blad: \"" << msg << '"' << endl;
+  logger << "Wysylam blad: \"" << msg << '"' << endl;
   
   sendString(handler, msg, newline);
 }
